@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ITTDynamics · Stock/Pedidos/Reservas · Precios + PDF</title>
+
+  <!-- Tailwind por CDN (si la red lo permite). La app funciona aunque no cargue estilos. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    .mono { font-variant-numeric: tabular-nums; }
+    .shadow-soft { box-shadow: 0 10px 28px rgba(15, 23, 42, .12); }
+    .badge { display:inline-flex; align-items:center; gap:.35rem; padding:.14rem .60rem; border-radius:9999px; font-size:.74rem; font-weight:800; border:1px solid transparent; white-space:nowrap; }
+    .tab[aria-selected="true"] { background:#0f172a; color:#fff; }
+    .tab[aria-selected="false"] { background:transparent; color:#0f172a; }
+    .ring-soft:focus { outline:none; box-shadow:0 0 0 4px rgba(59,130,246,.20); border-color: rgba(59,130,246,.55); }
+  </style>
+</head>
+
+<!-- Fondo gris ceniza -->
+<body class="bg-[#d8d8d8] text-slate-900">
+  <div class="min-h-screen">
+
+    <header class="bg-white/90 backdrop-blur border-b border-slate-200 sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-4 md:px-6 py-4 flex flex-col gap-3">
+
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="h-10 w-10 rounded-2xl bg-slate-900 flex items-center justify-center text-white font-black overflow-hidden">
+              <img id="companyLogo" class="hidden h-10 w-10 object-cover" alt="ITTDynamics" />
+              <span id="companyLogoFallback">IT</span>
+            </div>
+            <div class="min-w-0">
+              <div class="text-xs text-slate-600">ITTDynamics</div>
+              <h1 class="text-lg md:text-xl font-semibold truncate">Consulta Stock / Pedidos / Reservas · Precios + PDF</h1>
+              <div class="text-xs text-slate-500">
+                VO recomendado · VS/VR referencia · Preentrega/recepción +600 · Pedidos BOBCAT: +3% portes sobre DNP · Opción A: PVP = Coste/(1-margen)
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 sm:gap-3">
+            <div class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
+              <span class="text-xs text-slate-600">Marca</span>
+              <div class="h-7 w-28 flex items-center justify-end">
+                <img id="brandLogo" alt="Logo marca" class="max-h-7 max-w-28 object-contain hidden" />
+                <span id="brandLogoFallback" class="text-xs text-slate-500">—</span>
+              </div>
+            </div>
+
+            <button id="btnReloadData" class="hidden px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 shadow-soft text-sm">
+              Actualizar data.xlsx
+            </button>
+
+            <label class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 text-white cursor-pointer hover:bg-slate-800 shadow-soft">
+              <input id="fileInput" type="file" accept=".xlsx,.xls" class="hidden" />
+              <span class="text-sm font-semibold">Cargar Excel</span>
+            </label>
+
+            <button id="btnReset" class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 shadow-soft text-sm">
+              Reiniciar
+            </button>
+          </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div id="meta" class="text-sm text-slate-700">
+            <span class="inline-flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-slate-300"></span>Sin archivo cargado.</span>
+          </div>
+          <div class="text-xs text-slate-600">
+            Autocarga (opcional): suba su Excel como <span class="font-semibold mono">data.xlsx</span> junto a este HTML.
+          </div>
+        </div>
+
+        <div id="err" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm"></div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-4">
+
+      <section id="kpisBox" class="hidden grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-soft"><div class="text-xs text-slate-600">Total</div><div id="kTotal" class="text-2xl font-semibold mono">—</div></div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-soft"><div class="text-xs text-slate-600">Disponibles</div><div id="kDisp" class="text-2xl font-semibold mono">—</div></div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-soft"><div class="text-xs text-slate-600">Stock</div><div id="kStock" class="text-2xl font-semibold mono">—</div></div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-soft"><div class="text-xs text-slate-600">Pedidos</div><div id="kPedido" class="text-2xl font-semibold mono">—</div></div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-soft"><div class="text-xs text-slate-600">Reservadas</div><div id="kRes" class="text-2xl font-semibold mono">—</div></div>
+      </section>
+
+      <section id="filtersBox" class="hidden bg-white rounded-2xl border border-slate-200 p-4 shadow-soft">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Marca</label><select id="fMarca" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft"></select></div>
+          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Familia</label><select id="fFamilia" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft"></select></div>
+          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Modelo</label><select id="fModelo" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft"></select></div>
+          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Estado</label><select id="fEstado" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft"></select></div>
+
+          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Subfamilia</label><select id="fSubfamilia" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft"></select></div>
+          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Tipo</label><select id="fTipo" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft"></select></div>
+
+          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Reserva</label>
+            <select id="fReserva" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft">
+              <option value="no" selected>Solo NO reservadas (disponibles)</option>
+              <option value="si">Solo SÍ reservadas</option>
+              <option value="todas">Todas</option>
+            </select>
+          </div>
+
+          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Búsqueda libre</label>
+            <input id="fSearch" class="mt-1 w-full rounded-xl border-slate-300 bg-white ring-soft" placeholder="Nº máquina, bastidor, cliente, presupuesto..." />
+          </div>
+
+          <div class="md:col-span-12 flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-1">
+            <div class="flex flex-wrap items-center gap-4">
+              <label class="inline-flex items-center gap-2 text-sm font-medium"><input id="fInclStock" type="checkbox" class="rounded border-slate-300" checked />Incluir stock</label>
+              <label class="inline-flex items-center gap-2 text-sm font-medium"><input id="fInclPedido" type="checkbox" class="rounded border-slate-300" checked />Incluir pedidos</label>
+            </div>
+            <button id="btnClearFilters" class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm shadow-soft">Limpiar filtros</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="viewsBox" class="hidden bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-soft">
+        <div class="border-b border-slate-200 p-2 flex items-center gap-2 bg-slate-50">
+          <button id="tabSummary" class="tab px-3 py-2 rounded-xl text-sm font-semibold" aria-selected="true">Resumen</button>
+          <button id="tabDetail" class="tab px-3 py-2 rounded-xl text-sm font-semibold" aria-selected="false">Detalle</button>
+          <div class="ml-auto text-sm text-slate-600"><span id="metaResults">—</span></div>
+        </div>
+
+        <div id="summaryView" class="p-4">
+          <div class="text-sm text-slate-700">Agrupado por <span class="font-semibold">Marca · Modelo · Estado · Familia</span>. Pulse una fila para ver el detalle.</div>
+          <div class="mt-3 overflow-auto border border-slate-200 rounded-2xl">
+            <table class="min-w-full text-sm">
+              <thead class="bg-slate-100 text-slate-700 sticky top-0">
+                <tr class="text-left">
+                  <th class="p-3 font-semibold">Marca</th>
+                  <th class="p-3 font-semibold">Modelo</th>
+                  <th class="p-3 font-semibold">Estado</th>
+                  <th class="p-3 font-semibold">Familia</th>
+                  <th class="p-3 font-semibold text-right">Stock disp.</th>
+                  <th class="p-3 font-semibold text-right">Stock res.</th>
+                  <th class="p-3 font-semibold text-right">Pedido disp.</th>
+                  <th class="p-3 font-semibold text-right">Pedido res.</th>
+                  <th class="p-3 font-semibold text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody id="summaryBody" class="divide-y divide-slate-200"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="detailView" class="p-4 hidden">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div class="text-sm text-slate-700">Resultados: <span id="detailCount" class="font-semibold mono">0</span></div>
+            <div class="text-xs text-slate-500">“VO” recomendado. En “Ver cálculo” puede descargar PDF.</div>
+          </div>
+
+          <div class="mt-3 overflow-auto border border-slate-200 rounded-2xl">
+            <table class="min-w-[2200px] w-full text-sm">
+              <thead class="bg-slate-100 text-slate-700 sticky top-0">
+                <tr class="text-left">
+                  <th class="p-3 font-semibold">Disp.</th>
+                  <th class="p-3 font-semibold">Reserva</th>
+                  <th class="p-3 font-semibold">Marca</th>
+                  <th class="p-3 font-semibold">Modelo</th>
+                  <th class="p-3 font-semibold">Estado</th>
+                  <th class="p-3 font-semibold">Familia</th>
+                  <th class="p-3 font-semibold">Nº máquina</th>
+                  <th class="p-3 font-semibold">Planta</th>
+                  <th class="p-3 font-semibold">F. envío</th>
+
+                  <th class="p-3 font-semibold text-right">Precio base</th>
+                  <th class="p-3 font-semibold text-right">Coste calc.</th>
+                  <th class="p-3 font-semibold text-right">VO</th>
+
+                  <th class="p-3 font-semibold">Presupuesto</th>
+                  <th class="p-3 font-semibold">Cliente reserva</th>
+                  <th class="p-3 font-semibold">Representante</th>
+
+                  <th class="p-3 font-semibold">Acción</th>
+                  <th class="p-3 font-semibold">Config / Obs</th>
+                </tr>
+              </thead>
+              <tbody id="detailBody" class="divide-y divide-slate-200"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Modal -->
+    <div id="priceModal" class="hidden fixed inset-0 z-50">
+      <div class="absolute inset-0 bg-slate-900/40" data-close="1"></div>
+      <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-soft overflow-hidden">
+          <div class="p-4 border-b border-slate-200 bg-slate-50 flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-xs text-slate-600">Cálculo de precio</div>
+              <div id="mTitle" class="text-lg font-semibold truncate">—</div>
+              <div id="mSubtitle" class="text-xs text-slate-500 mt-1">—</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btnPdf" class="px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-sm font-semibold">Descargar PDF</button>
+              <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" data-close="1">Cerrar</button>
+            </div>
+          </div>
+
+          <div class="p-4 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                <div class="text-xs text-slate-600">Coste (detalle)</div>
+                <div class="mt-2 space-y-1 text-sm">
+                  <div class="flex justify-between"><span class="text-slate-600">Precio base</span><span id="mBase" class="font-semibold mono">—</span></div>
+                  <div class="flex justify-between"><span class="text-slate-600">Portes (3%)</span><span id="mPortes" class="font-semibold mono">—</span></div>
+                  <div class="flex justify-between"><span class="text-slate-600">Preentrega/recepción</span><span id="mPre" class="font-semibold mono">—</span></div>
+                  <div class="border-t border-slate-200 pt-2 mt-2 flex justify-between"><span class="text-slate-700 font-semibold">Coste total</span><span id="mCoste" class="text-slate-900 font-black mono">—</span></div>
+                </div>
+              </div>
+
+              <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                <div class="text-xs text-slate-600">Precio mínimo a ofertar</div>
+                <div class="mt-2 space-y-1 text-sm">
+                  <div class="flex justify-between"><span class="text-slate-600">VS</span><span id="mVS" class="font-semibold mono">—</span></div>
+                  <div class="flex justify-between"><span class="text-slate-600">VO</span><span id="mVO" class="font-black mono">—</span></div>
+                  <div class="flex justify-between"><span class="text-slate-600">VR</span><span id="mVR" class="font-semibold mono">—</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div class="bg-white border border-slate-200 rounded-2xl p-4"><div class="text-xs text-slate-600">Presupuesto</div><div id="mPresu" class="text-sm font-semibold mt-1">—</div></div>
+              <div class="bg-white border border-slate-200 rounded-2xl p-4"><div class="text-xs text-slate-600">Cliente reserva</div><div id="mCliente" class="text-sm font-semibold mt-1">—</div></div>
+              <div class="bg-white border border-slate-200 rounded-2xl p-4"><div class="text-xs text-slate-600">Representante</div><div id="mRep" class="text-sm font-semibold mt-1">—</div></div>
+            </div>
+
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+              <div id="mNote" class="text-xs text-slate-500">—</div>
+              <div class="flex items-center gap-2">
+                <button id="btnCopyVO" class="px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-sm font-semibold">Copiar VO</button>
+                <button id="btnCopyAll" class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">Copiar VS/VO/VR</button>
+              </div>
+            </div>
+
+            <div id="pdfHint" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+              No se ha podido cargar jsPDF. Si su red bloquea CDNs, descargue y ponga junto a index.html:
+              <span class="mono">jspdf.umd.min.js</span> y <span class="mono">jspdf.plugin.autotable.min.js</span>.
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+
+  const AUTOLOAD_URL = "./data.xlsx"; // opcional
+
+  // Logos
+  const BRAND_LOGOS = {
+    "bobcat": "./bobcat-decal-6731507-57_1.PNG",
+    "ausa": "./ausa.PNG"
+  };
+  const COMPANY_LOGO_CANDIDATES = ["./logo_itd.png","./logo_ittd.png","./logo_itd.jpg","./logo_itd.jpeg"];
+
+  // Márgenes (Opción A)
+  const FAMILY_RULES = [
+    { key: "cargadora compacta ruedas",   keywords: ["cargadora compacta","ruedas"], vs:0.18, vo:0.15, vr:0.12 },
+    { key: "cargadora compacta orugas",   keywords: ["cargadora compacta","orugas"], vs:0.18, vo:0.15, vr:0.12 },
+    { key: "cargadora compacta",          keywords: ["cargadora compacta"],          vs:0.18, vo:0.15, vr:0.12 },
+    { key: "mini excavadora",             keywords: ["mini","excav"],                 vs:0.15, vo:0.12, vr:0.10 },
+    { key: "midi excavadora",             keywords: ["midi","excav"],                 vs:0.12, vo:0.10, vr:0.08 },
+    { key: "accesorios obra publica",     keywords: ["accesor"],                      vs:0.30, vo:0.25, vr:0.20 },
+    { key: "material mantenimiento",      keywords: ["mantenimiento"],                vs:0.30, vo:0.25, vr:0.20 },
+    { key: "vehiculo transporte y carga", keywords: ["vehiculo","transporte"],        vs:0.18, vo:0.15, vr:0.12 },
+    { key: "dumper",                      keywords: ["dumper"],                       vs:0.18, vo:0.15, vr:0.12 },
+    { key: "telescopica",                 keywords: ["telescop"],                     vs:0.12, vo:0.10, vr:0.08 },
+    { key: "pala cargadora",              keywords: ["pala","cargador"],              vs:0.15, vo:0.12, vr:0.08 },
+  ];
+
+  const state = {
+    rows: [],
+    filtered: [],
+    view: "summary",
+    filters: {
+      marca:"todas", familia:"todas", modelo:"todas", estado:"todas",
+      subfamilia:"todas", tipo:"todas",
+      reserva:"no", includeStock:true, includePedido:true, search:""
+    },
+    currentModalRow: null
+  };
+
+  // Helpers
+  function escapeHtml(s){return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
+  function normText(s){return String(s??"").trim().toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();}
+  function cleanText(t){const s=String(t??"").trim(); if(!s) return ""; if(s.toLowerCase()==="nan") return ""; return s;}
+  function parseNumber(v){
+    if (v===null || v===undefined) return null;
+    if (typeof v==="number" && Number.isFinite(v)) return v;
+    const s=String(v).trim(); if(!s) return null;
+    let x=s.replace(/\\s/g,"");
+    const hasComma=x.includes(","), hasDot=x.includes(".");
+    if(hasComma && hasDot){
+      if(x.lastIndexOf(",")>x.lastIndexOf(".")) x=x.replace(/\\./g,"").replace(",",".");
+      else x=x.replace(/,/g,"");
+    } else if(hasComma && !hasDot){ x=x.replace(",","."); }
+    const n=Number(x); return Number.isFinite(n)?n:null;
+  }
+  function ceilUp(n){ if(n==null || !Number.isFinite(n)) return null; return Math.ceil(n); }
+  function toYesNo(v){ const t=normText(v); if(!t) return ""; if(t==="si"||t==="sí"||t==="s") return "Sí"; if(t==="no"||t==="n") return "No"; return String(v); }
+  function parseExcelDate(v){
+    if(!v) return null;
+    if(v instanceof Date && !isNaN(v)) return v;
+    if(typeof v==="number"){ const epoch=new Date(Date.UTC(1899,11,30)); const d=new Date(epoch.getTime()+v*86400000); return isNaN(d)?null:d; }
+    const d=new Date(String(v).trim()); return isNaN(d)?null:d;
+  }
+  function fmtDate(d){ if(!d || !(d instanceof Date) || isNaN(d)) return ""; const dd=String(d.getDate()).padStart(2,"0"); const mm=String(d.getMonth()+1).padStart(2,"0"); return `${dd}/${mm}/${d.getFullYear()}`; }
+  function fmtIntOrND(n){ if(n==null || !Number.isFinite(n)) return "N/D"; return String(Math.round(n)); }
+
+  function badge(text, kind){
+    if(kind==="stock") return `<span class="badge bg-emerald-50 text-emerald-800 border border-emerald-200">${escapeHtml(text)}</span>`;
+    if(kind==="pedido") return `<span class="badge bg-sky-50 text-sky-800 border border-sky-200">${escapeHtml(text)}</span>`;
+    return `<span class="badge bg-slate-50 text-slate-700 border border-slate-200">${escapeHtml(text)}</span>`;
+  }
+  function badgeReserva(reservada){
+    if(reservada === "Sí"){
+      return `<span class="badge bg-rose-50 text-rose-800 border border-rose-200">⚠️ <span>RESERVA</span></span>`;
+    }
+    return `<span class="badge bg-emerald-50 text-emerald-800 border border-emerald-200">✅ <span>DISPONIBLE</span></span>`;
+  }
+
+  function setStatus(text, color="bg-slate-300"){
+    $("meta").innerHTML = `<span class="inline-flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full ${color}"></span>${escapeHtml(text)}</span>`;
+  }
+  function showErr(html){ $("err").innerHTML=html; $("err").classList.remove("hidden"); }
+  function clearErr(){ $("err").classList.add("hidden"); $("err").innerHTML=""; }
+  function setView(view){
+    state.view=view;
+    $("tabSummary").setAttribute("aria-selected", view==="summary"?"true":"false");
+    $("tabDetail").setAttribute("aria-selected", view==="detail"?"true":"false");
+    $("summaryView").classList.toggle("hidden", view!=="summary");
+    $("detailView").classList.toggle("hidden", view!=="detail");
+  }
+
+  // Load scripts (XLSX + jsPDF)
+  function loadScript(src){
+    return new Promise((resolve, reject)=>{
+      const s=document.createElement("script");
+      s.src=src; s.async=true;
+      s.onload=()=>resolve(true);
+      s.onerror=()=>reject(new Error("No se pudo cargar " + src));
+      document.head.appendChild(s);
+    });
+  }
+  async function ensureXLSX(){
+    if(window.XLSX) return true;
+    try { await loadScript("./xlsx.full.min.js"); if(window.XLSX) return true; } catch {}
+    try { await loadScript("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"); return !!window.XLSX; } catch {}
+    return false;
+  }
+  async function ensureJsPdf(){
+    if(window.jspdf && window.jspdf.jsPDF) return true;
+    try { await loadScript("./jspdf.umd.min.js"); } catch {}
+    try { await loadScript("./jspdf.plugin.autotable.min.js"); } catch {}
+    if(window.jspdf && window.jspdf.jsPDF) return true;
+    try { await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"); } catch {}
+    try { await loadScript("https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"); } catch {}
+    return !!(window.jspdf && window.jspdf.jsPDF);
+  }
+
+  // Logos
+  async function tryLoadImage(imgEl, fallbackEl, url, fallbackText){
+    imgEl.classList.add("hidden");
+    fallbackEl.classList.remove("hidden");
+    fallbackEl.textContent = fallbackText ?? "—";
+    if(!url) return;
+
+    const ok = await new Promise((resolve) => {
+      const t = new Image();
+      t.onload = () => resolve(true);
+      t.onerror = () => resolve(false);
+      t.src = url + (url.includes("?") ? "&" : "?") + "v=" + Date.now();
+    });
+
+    if(ok){
+      imgEl.src = url + "?v=" + Date.now();
+      imgEl.classList.remove("hidden");
+      fallbackEl.classList.add("hidden");
+    }
+  }
+
+  async function loadCompanyLogo(){
+    for(const url of COMPANY_LOGO_CANDIDATES){
+      const ok = await new Promise((resolve) => {
+        const t = new Image();
+        t.onload = () => resolve(true);
+        t.onerror = () => resolve(false);
+        t.src = url + "?v=" + Date.now();
+      });
+      if(ok){
+        $("companyLogo").src = url + "?v=" + Date.now();
+        $("companyLogo").classList.remove("hidden");
+        $("companyLogoFallback").classList.add("hidden");
+        return;
+      }
+    }
+  }
+
+  async function updateBrandLogo(){
+    const v = normText(state.filters.marca);
+    if(!v || v==="todas"){
+      $("brandLogo").classList.add("hidden");
+      $("brandLogoFallback").classList.remove("hidden");
+      $("brandLogoFallback").textContent = "—";
+      return;
+    }
+    const url = BRAND_LOGOS[v];
+    await tryLoadImage($("brandLogo"), $("brandLogoFallback"), url, state.filters.marca);
+  }
+
+  // Pricing rules
+  function getFamilyMargins(familiaRaw){
+    const f = normText(familiaRaw);
+    if(!f) return null;
+    for(const rule of FAMILY_RULES){
+      const ok = rule.keywords.every(k => f.includes(normText(k)));
+      if(ok) return { key: rule.key, vs: rule.vs, vo: rule.vo, vr: rule.vr };
+    }
+    return null;
+  }
+  function offerPrice(costTotal, margin){
+    if(costTotal==null || !Number.isFinite(costTotal)) return null;
+    if(margin==null || !Number.isFinite(margin) || margin>=1) return null;
+    return ceilUp(costTotal / (1 - margin)); // Opción A
+  }
+
+  // ✅ NEW: canonicalizeRows robusto (evita que N pise a L si hay cabeceras duplicadas)
+  function canonicalizeRows(jsonRows){
+    const keyMap = new Map();
+    if (jsonRows.length) {
+      Object.keys(jsonRows[0]).forEach((k) => {
+        const nk = normText(k);
+        if (!keyMap.has(nk)) keyMap.set(nk, []);
+        keyMap.get(nk).push(k); // mantiene orden (L antes que N)
+      });
+    }
+
+    const pickFirst = (row, variants) => {
+      for (const v of variants) {
+        const nk = normText(v);
+        const candidates = keyMap.get(nk);
+        if (candidates && candidates.length) {
+          const realKey = candidates[0]; // 👈 primera (columna más a la izquierda)
+          if (row[realKey] !== undefined) return row[realKey];
+        }
+      }
+      return "";
+    };
+
+    return jsonRows.map((r, idx)=>{
+      const situacion=String(pickFirst(r,["Situacion","Situación"])).trim();
+      const marca=String(pickFirst(r,["Marca"])).trim();
+      const isStock=normText(situacion).includes("stock");
+      const isPedido=normText(situacion).includes("pedid");
+
+      const reservada=toYesNo(pickFirst(r,["Reservada"])) || "No";
+      const estadoPago=String(pickFirst(r,["Estado Pago","EstadoPago"])).trim();
+      const paid=normText(estadoPago)==="pagada";
+
+      // ✅ Cliente reserva desde columna L ("Razon social"/"Razón social")
+      const razonSocial = String(pickFirst(r,["Razon social","Razón social"])).trim();
+      const presupuesto = String(pickFirst(r,["Presupuesto comercial","Presupuesto"])).trim();
+      const clienteReserva = String(pickFirst(r,["Cliente reserva","Razon social","Razón social"])).trim()
+        || (reservada==="Sí" ? razonSocial : "");
+      const representante = String(pickFirst(r,["Nom rep","Representante"])).trim();
+
+      const precioCompra=parseNumber(pickFirst(r,["Precio de compra","Precio compra"]));
+      const dnp=parseNumber(pickFirst(r,["Doosan Line amount","DNP","Line amount"]));
+      const shipDate=parseExcelDate(pickFirst(r,["Doosan Date of shipment","Date of shipment"]));
+
+      const precioBase = isStock ? precioCompra : (isPedido ? dnp : null);
+      const isBobcat = normText(marca)==="bobcat";
+      const portesRaw = (isPedido && isBobcat && dnp!=null) ? (dnp * 0.03) : 0;
+      const preentrega = 600;
+
+      let costTotal=null;
+      if(isStock && precioCompra!=null) costTotal=ceilUp(precioCompra + preentrega);
+      else if(isPedido && isBobcat && dnp!=null) costTotal=ceilUp(dnp + portesRaw + preentrega);
+      else if(isPedido) costTotal=null;
+
+      const familia=String(pickFirst(r,["Familia"])).trim();
+      const margins=getFamilyMargins(familia);
+      const pVS=margins ? offerPrice(costTotal, margins.vs) : null;
+      const pVO=margins ? offerPrice(costTotal, margins.vo) : null;
+      const pVR=margins ? offerPrice(costTotal, margins.vr) : null;
+
+      const cfg=[
+        cleanText(pickFirst(r,["Coments maq","Comentarios","Comentarios maq"])),
+        cleanText(pickFirst(r,["Doosan Description"])),
+        cleanText(pickFirst(r,["Observacion","Observación"]))
+      ].filter(Boolean).join(" · ");
+      const cfgShort = cfg.length>110 ? cfg.slice(0,107)+"..." : cfg;
+
+      return {
+        _idx: idx,
+        situacion, isStock, isPedido,
+        reservada, paid,
+        marca,
+        modelo: String(pickFirst(r,["Modelo"])).trim(),
+        familia,
+        subfamilia: String(pickFirst(r,["Subfamilia"])).trim(),
+        tipo: String(pickFirst(r,["Tipo"])).trim(),
+        estado: String(pickFirst(r,["Estado"])).trim(),
+        numMaquina: String(pickFirst(r,["Nº de maquina","No de maquina","N° de maquina"])).trim(),
+        plantaStock: String(pickFirst(r,["Planta stock"])).trim(),
+        plantaRecepcion: String(pickFirst(r,["Planta recepcion","Planta recepción"])).trim(),
+        shipDate,
+
+        precioBase, dnp,
+        preentrega,
+        portes: portesRaw ? ceilUp(portesRaw) : 0,
+        costTotal,
+        margins, pVS, pVO, pVR,
+
+        presupuesto,
+        clienteReserva,
+        representante,
+
+        cfgShort
+      };
+    });
+  }
+
+  // Filters (cascada)
+  function uniqueSorted(arr){
+    return Array.from(new Set(arr.filter(v=>String(v||"").trim()))).sort((a,b)=>String(a).localeCompare(String(b),"es"));
+  }
+  function fillSelect(sel, values, current){
+    sel.innerHTML = `<option value="todas">Todas</option>` + values.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+    sel.value = (current && (current==="todas" || values.includes(current))) ? current : "todas";
+  }
+
+  function baseFiltered(excludeKey=null){
+    const f=state.filters;
+    const q=normText(f.search);
+    return state.rows.filter(r=>{
+      if(excludeKey!=="includeStock" && excludeKey!=="includePedido"){
+        if(!f.includeStock && r.isStock) return false;
+        if(!f.includePedido && r.isPedido) return false;
+      }
+      if(excludeKey!=="reserva"){
+        if(f.reserva==="no" && r.reservada!=="No") return false;
+        if(f.reserva==="si" && r.reservada!=="Sí") return false;
+      }
+      if(excludeKey!=="marca" && f.marca!=="todas" && r.marca!==f.marca) return false;
+      if(excludeKey!=="familia" && f.familia!=="todas" && r.familia!==f.familia) return false;
+      if(excludeKey!=="modelo" && f.modelo!=="todas" && r.modelo!==f.modelo) return false;
+      if(excludeKey!=="estado" && f.estado!=="todas" && r.estado!==f.estado) return false;
+      if(excludeKey!=="subfamilia" && f.subfamilia!=="todas" && r.subfamilia!==f.subfamilia) return false;
+      if(excludeKey!=="tipo" && f.tipo!=="todas" && r.tipo!==f.tipo) return false;
+
+      if(excludeKey!=="search" && q){
+        const hay=[r.numMaquina,r.marca,r.modelo,r.familia,r.subfamilia,r.tipo,r.estado,r.presupuesto,r.clienteReserva,r.representante].map(normText).join(" ");
+        if(!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  function rebuildOptions(){
+    fillSelect($("fMarca"), uniqueSorted(baseFiltered("marca").map(r=>r.marca)), state.filters.marca);
+    fillSelect($("fFamilia"), uniqueSorted(baseFiltered("familia").map(r=>r.familia)), state.filters.familia);
+    fillSelect($("fModelo"), uniqueSorted(baseFiltered("modelo").map(r=>r.modelo)), state.filters.modelo);
+    fillSelect($("fEstado"), uniqueSorted(baseFiltered("estado").map(r=>r.estado)), state.filters.estado);
+    fillSelect($("fSubfamilia"), uniqueSorted(baseFiltered("subfamilia").map(r=>r.subfamilia)), state.filters.subfamilia);
+    fillSelect($("fTipo"), uniqueSorted(baseFiltered("tipo").map(r=>r.tipo)), state.filters.tipo);
+  }
+
+  function syncFilterUI(){
+    $("fMarca").value=state.filters.marca;
+    $("fFamilia").value=state.filters.familia;
+    $("fModelo").value=state.filters.modelo;
+    $("fEstado").value=state.filters.estado;
+    $("fSubfamilia").value=state.filters.subfamilia;
+    $("fTipo").value=state.filters.tipo;
+    $("fReserva").value=state.filters.reserva;
+    $("fSearch").value=state.filters.search;
+    $("fInclStock").checked=!!state.filters.includeStock;
+    $("fInclPedido").checked=!!state.filters.includePedido;
+  }
+
+  // Apply filters + sort
+  function applyFilters(){
+    const f=state.filters;
+    const q=normText(f.search);
+
+    let out = state.rows.filter(r=>{
+      if(!f.includeStock && r.isStock) return false;
+      if(!f.includePedido && r.isPedido) return false;
+
+      if(f.reserva==="no" && r.reservada!=="No") return false;
+      if(f.reserva==="si" && r.reservada!=="Sí") return false;
+
+      if(f.marca!=="todas" && r.marca!==f.marca) return false;
+      if(f.familia!=="todas" && r.familia!==f.familia) return false;
+      if(f.modelo!=="todas" && r.modelo!==f.modelo) return false;
+      if(f.estado!=="todas" && r.estado!==f.estado) return false;
+      if(f.subfamilia!=="todas" && r.subfamilia!==f.subfamilia) return false;
+      if(f.tipo!=="todas" && r.tipo!==f.tipo) return false;
+
+      if(q){
+        const hay=[r.numMaquina,r.marca,r.modelo,r.familia,r.subfamilia,r.tipo,r.estado,r.presupuesto,r.clienteReserva,r.representante].map(normText).join(" ");
+        if(!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    out.sort((a,b)=>{
+      const gA=a.isStock?0:1, gB=b.isStock?0:1;
+      if(gA!==gB) return gA-gB;
+
+      if(a.isStock && b.isStock){
+        const pA=a.paid?0:1, pB=b.paid?0:1;
+        if(pA!==pB) return pA-pB;
+        const plA=String(a.plantaStock||""), plB=String(b.plantaStock||"");
+        const c1=plA.localeCompare(plB,"es"); if(c1) return c1;
+        return String(a.numMaquina||"").localeCompare(String(b.numMaquina||""),"es");
+      } else {
+        const tA=a.shipDate instanceof Date && !isNaN(a.shipDate) ? a.shipDate.getTime() : Number.POSITIVE_INFINITY;
+        const tB=b.shipDate instanceof Date && !isNaN(b.shipDate) ? b.shipDate.getTime() : Number.POSITIVE_INFINITY;
+        if(tA!==tB) return tA-tB;
+        return String(a.numMaquina||"").localeCompare(String(b.numMaquina||""),"es");
+      }
+    });
+
+    state.filtered=out;
+    $("detailCount").textContent=String(out.length);
+    $("metaResults").textContent=`${out.length} resultado(s)`;
+  }
+
+  // Render KPIs
+  function renderKPIs(){
+    $("kTotal").textContent=String(state.rows.length);
+    $("kStock").textContent=String(state.rows.filter(r=>r.isStock).length);
+    $("kPedido").textContent=String(state.rows.filter(r=>r.isPedido).length);
+    $("kRes").textContent=String(state.rows.filter(r=>r.reservada==="Sí").length);
+    $("kDisp").textContent=String(state.rows.filter(r=>r.reservada==="No").length);
+  }
+
+  // Render summary
+  function renderSummary(){
+    const base=baseFiltered(null);
+    const map=new Map();
+    for(const r of base){
+      const key=[r.marca,r.modelo,r.estado,r.familia].join("||");
+      if(!map.has(key)) map.set(key,{marca:r.marca, modelo:r.modelo, estado:r.estado, familia:r.familia, sd:0,sr:0,pd:0,pr:0,t:0});
+      const g=map.get(key);
+      g.t++;
+      if(r.isStock) (r.reservada==="Sí"?g.sr++:g.sd++);
+      if(r.isPedido) (r.reservada==="Sí"?g.pr++:g.pd++);
+    }
+    const groups=Array.from(map.values()).sort((a,b)=>{
+      const c1=a.marca.localeCompare(b.marca,"es"); if(c1) return c1;
+      const c2=a.modelo.localeCompare(b.modelo,"es"); if(c2) return c2;
+      const c3=a.estado.localeCompare(b.estado,"es"); if(c3) return c3;
+      return a.familia.localeCompare(b.familia,"es");
+    });
+
+    $("summaryBody").innerHTML = groups.map(g=>`
+      <tr class="hover:bg-slate-50 cursor-pointer" data-action="goDetail"
+          data-marca="${escapeHtml(g.marca)}" data-modelo="${escapeHtml(g.modelo)}" data-estado="${escapeHtml(g.estado)}" data-familia="${escapeHtml(g.familia)}">
+        <td class="p-3">${escapeHtml(g.marca)}</td>
+        <td class="p-3 font-semibold">${escapeHtml(g.modelo)}</td>
+        <td class="p-3">${escapeHtml(g.estado)}</td>
+        <td class="p-3">${escapeHtml(g.familia)}</td>
+        <td class="p-3 text-right mono">${g.sd}</td>
+        <td class="p-3 text-right mono">${g.sr}</td>
+        <td class="p-3 text-right mono">${g.pd}</td>
+        <td class="p-3 text-right mono">${g.pr}</td>
+        <td class="p-3 text-right mono font-bold">${g.t}</td>
+      </tr>
+    `).join("");
+
+    $("summaryBody").onclick = (ev)=>{
+      const tr=ev.target.closest("tr[data-action='goDetail']");
+      if(!tr) return;
+      state.filters.marca=tr.dataset.marca||"todas";
+      state.filters.modelo=tr.dataset.modelo||"todas";
+      state.filters.estado=tr.dataset.estado||"todas";
+      state.filters.familia=tr.dataset.familia||"todas";
+      rebuildOptions(); syncFilterUI(); updateBrandLogo(); renderAll(); renderKPIs(); setView("detail");
+    };
+  }
+
+  // Render detail
+  function renderDetail(){
+    $("detailBody").innerHTML = state.filtered.map((r,i)=>{
+      const disp = r.isStock ? badge("STOCK","stock") : badge("PEDIDO","pedido");
+      const resBadge = badgeReserva(r.reservada);
+
+      const planta = r.isStock ? r.plantaStock : r.plantaRecepcion;
+      const fenv = r.isPedido ? fmtDate(r.shipDate) : "";
+      const precioBase = (r.precioBase==null) ? "N/D" : String(ceilUp(r.precioBase));
+      const coste = fmtIntOrND(r.costTotal);
+      const vo = fmtIntOrND(r.pVO);
+
+      const rowCls =
+        r.reservada === "Sí"
+          ? "bg-rose-50/70"
+          : ((i%2===0) ? "bg-white" : "bg-slate-50/40");
+
+      return `
+        <tr class="${rowCls} hover:bg-slate-50 align-top">
+          <td class="p-3">${disp}</td>
+          <td class="p-3">${resBadge}</td>
+          <td class="p-3">${escapeHtml(r.marca)}</td>
+          <td class="p-3 font-semibold">${escapeHtml(r.modelo)}</td>
+          <td class="p-3">${escapeHtml(r.estado)}</td>
+          <td class="p-3">${escapeHtml(r.familia)}</td>
+          <td class="p-3 mono">${escapeHtml(r.numMaquina)}</td>
+          <td class="p-3">${escapeHtml(planta||"")}</td>
+          <td class="p-3 mono">${escapeHtml(fenv)}</td>
+
+          <td class="p-3 text-right mono">${precioBase==="N/D" ? `<span class="text-slate-400">N/D</span>` : `<span class="font-semibold">${escapeHtml(precioBase)}</span>`}</td>
+          <td class="p-3 text-right mono">${coste==="N/D" ? `<span class="text-slate-400">N/D</span>` : `<span class="font-semibold">${escapeHtml(coste)}</span>`}</td>
+          <td class="p-3 text-right mono">${vo==="N/D" ? `<span class="text-slate-400">N/D</span>` : `<span class="font-black">${escapeHtml(vo)}</span>`}</td>
+
+          <td class="p-3">${escapeHtml(r.presupuesto || "")}</td>
+          <td class="p-3">${escapeHtml(r.clienteReserva || "")}</td>
+          <td class="p-3">${escapeHtml(r.representante || "")}</td>
+
+          <td class="p-3">
+            <button class="px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-sm font-semibold" data-action="calc" data-idx="${r._idx}">
+              Ver cálculo
+            </button>
+          </td>
+
+          <td class="p-3 text-xs text-slate-700">${escapeHtml(r.cfgShort || "")}</td>
+        </tr>
+      `;
+    }).join("");
+
+    $("detailBody").onclick = (ev)=>{
+      const btn=ev.target.closest("button[data-action='calc']");
+      if(!btn) return;
+      const idx=Number(btn.dataset.idx);
+      const row = state.rows.find(x=>x._idx===idx);
+      if(!row) return;
+      openModal(row);
+    };
+  }
+
+  function renderAll(){
+    applyFilters();
+    renderSummary();
+    renderDetail();
+  }
+
+  // Modal
+  function openModal(row){
+    state.currentModalRow = row;
+
+    $("mTitle").textContent = `${row.marca} · ${row.modelo} · ${row.numMaquina || ""}`.trim();
+    $("mSubtitle").textContent = `${row.familia || ""} · ${row.estado || ""} · ${row.isStock ? "STOCK" : "PEDIDO"}`.trim();
+
+    const base = row.precioBase==null ? null : ceilUp(row.precioBase);
+    const portes = (row.isPedido && normText(row.marca)==="bobcat" && row.dnp!=null) ? ceilUp(row.dnp*0.03) : 0;
+    const pre = (row.costTotal!=null) ? row.preentrega : 0;
+
+    $("mBase").textContent = (base==null ? "N/D" : String(base));
+    $("mPortes").textContent = row.isPedido ? String(portes) : "0";
+    $("mPre").textContent = (row.costTotal==null ? "0" : String(pre));
+    $("mCoste").textContent = (row.costTotal==null ? "N/D" : String(row.costTotal));
+
+    $("mVS").textContent = fmtIntOrND(row.pVS);
+    $("mVO").textContent = fmtIntOrND(row.pVO);
+    $("mVR").textContent = fmtIntOrND(row.pVR);
+
+    $("mPresu").textContent = row.presupuesto || "—";
+    $("mCliente").textContent = row.clienteReserva || "—";
+    $("mRep").textContent = row.representante || "—";
+
+    if(row.costTotal==null) $("mNote").textContent = "No se puede calcular: falta coste (N/D).";
+    else if(!row.margins) $("mNote").textContent = "No se ha detectado margen: revise el texto de Familia para las reglas por palabra clave.";
+    else $("mNote").textContent = `Márgenes (${row.margins.key}): VS ${Math.round(row.margins.vs*100)}% · VO ${Math.round(row.margins.vo*100)}% · VR ${Math.round(row.margins.vr*100)}%`;
+
+    $("btnCopyVO").onclick = async ()=>{
+      const vo = fmtIntOrND(row.pVO); if(vo==="N/D") return;
+      try{ await navigator.clipboard.writeText(vo); }catch{}
+    };
+    $("btnCopyAll").onclick = async ()=>{
+      const text = `VS: ${fmtIntOrND(row.pVS)} | VO: ${fmtIntOrND(row.pVO)} | VR: ${fmtIntOrND(row.pVR)}`;
+      try{ await navigator.clipboard.writeText(text); }catch{}
+    };
+
+    $("pdfHint").classList.add("hidden");
+    $("priceModal").classList.remove("hidden");
+  }
+
+  function closeModal(){
+    $("priceModal").classList.add("hidden");
+    state.currentModalRow = null;
+  }
+
+  $("priceModal").addEventListener("click",(ev)=>{
+    if(ev.target.closest("[data-close='1']")) closeModal();
+  });
+
+  // PDF
+  function safeFilename(s){
+    return String(s||"").replace(/[^a-zA-Z0-9\\-_]+/g,"_").replace(/^_+|_+$/g,"").slice(0,80) || "oferta";
+  }
+
+  $("btnPdf").addEventListener("click", async ()=>{
+    const row = state.currentModalRow;
+    if(!row) return;
+
+    const ok = await ensureJsPdf();
+    if(!ok){
+      $("pdfHint").classList.remove("hidden");
+      return;
+    }
+    $("pdfHint").classList.add("hidden");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+
+    const base = row.precioBase==null ? "N/D" : String(ceilUp(row.precioBase));
+    const portes = (row.isPedido && normText(row.marca)==="bobcat" && row.dnp!=null) ? String(ceilUp(row.dnp*0.03)) : "0";
+    const pre = (row.costTotal==null) ? "0" : String(row.preentrega);
+    const coste = (row.costTotal==null) ? "N/D" : String(row.costTotal);
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(16);
+    doc.text("ITTDynamics · Cálculo de oferta", 40, 50);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(10);
+    doc.text("Generado: " + new Date().toLocaleString("es-ES"), 40, 68);
+
+    const info = [
+      ["Marca", row.marca],
+      ["Modelo", row.modelo],
+      ["Nº máquina", row.numMaquina || ""],
+      ["Estado", row.estado || ""],
+      ["Familia", row.familia || ""],
+      ["Situación", row.isStock ? "STOCK" : "PEDIDO"],
+      ["Reserva", row.reservada === "Sí" ? "RESERVA" : "DISPONIBLE"],
+      ["Presupuesto", row.presupuesto || ""],
+      ["Cliente reserva", row.clienteReserva || ""],
+      ["Representante", row.representante || ""]
+    ];
+
+    const precios = [
+      ["Precio base", base],
+      ["Portes (3%)", portes],
+      ["Preentrega/recepción", pre],
+      ["Coste total", coste],
+      ["VS", fmtIntOrND(row.pVS)],
+      ["VO (recomendado)", fmtIntOrND(row.pVO)],
+      ["VR", fmtIntOrND(row.pVR)]
+    ];
+
+    doc.autoTable({
+      startY: 90,
+      head: [["Campo","Valor"]],
+      body: info,
+      styles: { fontSize: 10, cellPadding: 4 },
+      headStyles: { fillColor: [15,23,42] }
+    });
+
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 14,
+      head: [["Concepto","Importe"]],
+      body: precios,
+      styles: { fontSize: 10, cellPadding: 4 },
+      headStyles: { fillColor: [15,23,42] }
+    });
+
+    doc.setFontSize(9);
+    doc.setTextColor(90);
+    doc.text("Nota: Fórmula margen (Opción A): PVP = Coste / (1 - margen). Precios redondeados al alza.", 40, doc.lastAutoTable.finalY + 18);
+
+    const fname = safeFilename(`Oferta_${row.presupuesto||row.numMaquina||"sin_ref"}_${row.marca||""}_${row.modelo||""}`) + ".pdf";
+    doc.save(fname);
+  });
+
+  // Read Excel
+  async function readWorkbookFromArrayBuffer(buf){
+    const ok = await ensureXLSX();
+    if(!ok) throw new Error("No se pudo cargar la librería XLSX (SheetJS).");
+    const wb = XLSX.read(buf, { type:"array", cellDates:true });
+    const sheetName = wb.SheetNames.find(n=>normText(n)==="consolidado") || wb.SheetNames[0];
+    if(!sheetName) throw new Error("El Excel no tiene hojas.");
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval:"" });
+    if(!rows.length) throw new Error("La hoja seleccionada está vacía.");
+    return rows;
+  }
+
+  async function loadFromFile(file){
+    const buf = await file.arrayBuffer();
+    return await readWorkbookFromArrayBuffer(buf);
+  }
+
+  async function loadFromUrl(url){
+    const u = url + (url.includes("?")?"&":"?") + "v=" + Date.now();
+    const res = await fetch(u, { cache:"no-store" });
+    if(!res.ok) throw new Error("No se pudo descargar data.xlsx (" + res.status + ")");
+    const buf = await res.arrayBuffer();
+    return await readWorkbookFromArrayBuffer(buf);
+  }
+
+  async function applyDataset(rows, sourceLabel){
+    state.rows = canonicalizeRows(rows);
+
+    rebuildOptions();
+    syncFilterUI();
+    await updateBrandLogo();
+
+    $("kpisBox").classList.remove("hidden");
+    $("filtersBox").classList.remove("hidden");
+    $("viewsBox").classList.remove("hidden");
+
+    renderAll();
+    renderKPIs();
+    setView("summary");
+
+    setStatus(sourceLabel + " · " + new Date().toLocaleString("es-ES"), "bg-emerald-400");
+  }
+
+  // UI reset
+  function resetUI(){
+    clearErr();
+    closeModal();
+    state.rows=[];
+    state.filtered=[];
+    state.view="summary";
+    state.filters={marca:"todas", familia:"todas", modelo:"todas", estado:"todas", subfamilia:"todas", tipo:"todas", reserva:"no", includeStock:true, includePedido:true, search:""};
+
+    $("kpisBox").classList.add("hidden");
+    $("filtersBox").classList.add("hidden");
+    $("viewsBox").classList.add("hidden");
+    $("summaryBody").innerHTML="";
+    $("detailBody").innerHTML="";
+    $("metaResults").textContent="—";
+    $("detailCount").textContent="0";
+    setView("summary");
+    setStatus("Sin archivo cargado.","bg-slate-300");
+    updateBrandLogo();
+
+    $("btnReloadData").classList.add("hidden");
+  }
+
+  // Bind filters
+  function bindFilters(){
+    const onChange = async ()=>{
+      state.filters.marca=$("fMarca").value;
+      state.filters.familia=$("fFamilia").value;
+      state.filters.modelo=$("fModelo").value;
+      state.filters.estado=$("fEstado").value;
+      state.filters.subfamilia=$("fSubfamilia").value;
+      state.filters.tipo=$("fTipo").value;
+      state.filters.reserva=$("fReserva").value;
+      state.filters.includeStock=$("fInclStock").checked;
+      state.filters.includePedido=$("fInclPedido").checked;
+      state.filters.search=$("fSearch").value;
+
+      rebuildOptions();
+      syncFilterUI();
+      await updateBrandLogo();
+      renderAll();
+      renderKPIs();
+    };
+
+    ["fMarca","fFamilia","fModelo","fEstado","fSubfamilia","fTipo","fReserva","fInclStock","fInclPedido"].forEach(id=>$(id).addEventListener("change", onChange));
+    let t=null;
+    $("fSearch").addEventListener("input", ()=>{ clearTimeout(t); t=setTimeout(onChange, 200); });
+
+    $("btnClearFilters").addEventListener("click", async ()=>{
+      state.filters={marca:"todas", familia:"todas", modelo:"todas", estado:"todas", subfamilia:"todas", tipo:"todas", reserva:"no", includeStock:true, includePedido:true, search:""};
+      rebuildOptions();
+      syncFilterUI();
+      await updateBrandLogo();
+      renderAll();
+      renderKPIs();
+    });
+  }
+
+  // Buttons
+  $("btnReset").addEventListener("click", resetUI);
+  $("tabSummary").addEventListener("click", ()=>setView("summary"));
+  $("tabDetail").addEventListener("click", ()=>setView("detail"));
+
+  $("fileInput").addEventListener("change", async (e)=>{
+    clearErr();
+    const file = e.target.files?.[0];
+    if(!file) return;
+    try{
+      setStatus("Cargando Excel…","bg-sky-400");
+      const rows = await loadFromFile(file);
+      await applyDataset(rows, "Archivo: " + file.name);
+      $("btnReloadData").classList.add("hidden");
+    } catch(err){
+      setStatus("Error al cargar","bg-rose-400");
+      showErr("No se ha podido leer el Excel.<br><span class='text-xs'>Detalle: " + escapeHtml(err?.message || String(err)) + "</span>");
+    } finally {
+      e.target.value="";
+    }
+  });
+
+  $("btnReloadData").addEventListener("click", async ()=>{
+    clearErr();
+    try{
+      setStatus("Actualizando data.xlsx…","bg-sky-400");
+      const rows = await loadFromUrl(AUTOLOAD_URL);
+      await applyDataset(rows, "Autocarga: data.xlsx");
+    } catch(err){
+      setStatus("No se pudo actualizar","bg-rose-400");
+      showErr("No se pudo actualizar desde <span class='mono'>data.xlsx</span>.<br><span class='text-xs'>Detalle: " + escapeHtml(err?.message || String(err)) + "</span>");
+    }
+  });
+
+  // Startup
+  (async ()=>{
+    bindFilters();
+    resetUI();
+    await loadCompanyLogo();
+
+    // Intentar autocarga de data.xlsx
+    try{
+      const rows = await loadFromUrl(AUTOLOAD_URL);
+      await applyDataset(rows, "Autocarga: data.xlsx");
+      $("btnReloadData").classList.remove("hidden");
+    } catch {
+      // modo manual
+    }
+  })();
+
+})();
+</script>
+</body>
+</html>
