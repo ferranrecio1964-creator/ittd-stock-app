@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ITTDynamics · Stock/Pedidos/Reservas · Precios + PDF</title>
 
-  <!-- Tailwind por CDN (si la red lo permite). La app funciona aunque no cargue estilos. -->
   <script src="https://cdn.tailwindcss.com"></script>
 
   <style>
@@ -15,10 +14,10 @@
     .tab[aria-selected="true"] { background:#0f172a; color:#fff; }
     .tab[aria-selected="false"] { background:transparent; color:#0f172a; }
     .ring-soft:focus { outline:none; box-shadow:0 0 0 4px rgba(59,130,246,.20); border-color: rgba(59,130,246,.55); }
+    .price-opt.active { border-color:#0f172a; background:#0f172a; color:#fff; }
   </style>
 </head>
 
-<!-- Fondo gris ceniza -->
 <body class="bg-[#d8d8d8] text-slate-900">
   <div class="min-h-screen">
 
@@ -53,6 +52,10 @@
               Actualizar data.xlsx
             </button>
 
+            <button id="btnExportExcel" class="hidden px-3 py-2 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 shadow-soft text-sm font-semibold text-emerald-800">
+              Exportar Excel
+            </button>
+
             <label class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 text-white cursor-pointer hover:bg-slate-800 shadow-soft">
               <input id="fileInput" type="file" accept=".xlsx,.xls" class="hidden" />
               <span class="text-sm font-semibold">Cargar Excel</span>
@@ -79,12 +82,16 @@
 
     <main class="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-4">
 
-      <section id="kpisBox" class="hidden grid grid-cols-2 md:grid-cols-5 gap-3">
+      <section id="kpisBox" class="hidden grid grid-cols-2 md:grid-cols-3 xl:grid-cols-9 gap-3">
         <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-soft"><div class="text-xs text-slate-600">Total</div><div id="kTotal" class="text-2xl font-semibold mono">—</div></div>
         <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-soft"><div class="text-xs text-slate-600">Disponibles</div><div id="kDisp" class="text-2xl font-semibold mono">—</div></div>
         <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-soft"><div class="text-xs text-slate-600">Stock</div><div id="kStock" class="text-2xl font-semibold mono">—</div></div>
         <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-soft"><div class="text-xs text-slate-600">Pedidos</div><div id="kPedido" class="text-2xl font-semibold mono">—</div></div>
         <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-soft"><div class="text-xs text-slate-600">Reservadas</div><div id="kRes" class="text-2xl font-semibold mono">—</div></div>
+        <div class="bg-white rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-soft"><div class="text-xs text-emerald-700">Stock disp. real</div><div id="kStockReal" class="text-2xl font-semibold mono text-emerald-800">—</div></div>
+        <div class="bg-white rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-soft"><div class="text-xs text-sky-700">Pedidos libres</div><div id="kPedidoLibre" class="text-2xl font-semibold mono text-sky-800">—</div></div>
+        <div class="bg-white rounded-2xl border border-violet-200 bg-violet-50 p-4 shadow-soft"><div class="text-xs text-violet-700">Reservas c/rep</div><div id="kResRep" class="text-2xl font-semibold mono text-violet-800">—</div></div>
+        <div class="bg-white rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-soft"><div class="text-xs text-amber-700">Clientes reserva</div><div id="kClientesRes" class="text-2xl font-semibold mono text-amber-800">—</div></div>
       </section>
 
       <section id="filtersBox" class="hidden bg-white rounded-2xl border border-slate-200 p-4 shadow-soft">
@@ -94,9 +101,8 @@
           <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Modelo</label><select id="fModelo" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft"></select></div>
           <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Estado</label><select id="fEstado" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft"></select></div>
 
-          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Subfamilia</label><select id="fSubfamilia" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft"></select></div>
-          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Tipo</label><select id="fTipo" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft"></select></div>
-
+          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Representante</label><select id="fRepresentante" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft"></select></div>
+          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Cliente</label><select id="fCliente" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft"></select></div>
           <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Reserva</label>
             <select id="fReserva" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft">
               <option value="no" selected>Solo NO reservadas (disponibles)</option>
@@ -104,9 +110,16 @@
               <option value="todas">Todas</option>
             </select>
           </div>
+          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Pago</label>
+            <select id="fPago" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 ring-soft">
+              <option value="todas" selected>Todas</option>
+              <option value="pagada">Pagada</option>
+              <option value="nopagada">No pagada</option>
+            </select>
+          </div>
 
-          <div class="md:col-span-3"><label class="block text-xs font-semibold text-slate-700">Búsqueda libre</label>
-            <input id="fSearch" class="mt-1 w-full rounded-xl border-slate-300 bg-white ring-soft" placeholder="Nº máquina, bastidor, cliente, presupuesto..." />
+          <div class="md:col-span-12"><label class="block text-xs font-semibold text-slate-700">Búsqueda libre</label>
+            <input id="fSearch" class="mt-1 w-full rounded-xl border-slate-300 bg-white ring-soft" placeholder="Modelo, marca, cliente, representante o presupuesto..." />
           </div>
 
           <div class="md:col-span-12 flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-1">
@@ -116,6 +129,56 @@
             </div>
             <button id="btnClearFilters" class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm shadow-soft">Limpiar filtros</button>
           </div>
+        </div>
+      </section>
+
+      <section id="repSummaryBox" class="hidden bg-white rounded-2xl border border-slate-200 p-4 shadow-soft">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-semibold text-slate-900">Resumen por representante</h2>
+            <div class="text-xs text-slate-500">Calculado sobre los resultados activos de la pantalla.</div>
+          </div>
+          <div id="repSummaryMeta" class="text-xs text-slate-500">—</div>
+        </div>
+
+        <div class="mt-3 overflow-auto border border-slate-200 rounded-2xl">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-100 text-slate-700 sticky top-0">
+              <tr class="text-left">
+                <th class="p-3 font-semibold">Representante</th>
+                <th class="p-3 font-semibold text-right">Reservas</th>
+                <th class="p-3 font-semibold text-right">Stock reservado</th>
+                <th class="p-3 font-semibold text-right">Pedido reservado</th>
+                <th class="p-3 font-semibold text-right">Total unidades</th>
+              </tr>
+            </thead>
+            <tbody id="repSummaryBody" class="divide-y divide-slate-200"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="clientSummaryBox" class="hidden bg-white rounded-2xl border border-slate-200 p-4 shadow-soft">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-semibold text-slate-900">Resumen por cliente</h2>
+            <div class="text-xs text-slate-500">Calculado sobre los resultados activos de la pantalla.</div>
+          </div>
+          <div id="clientSummaryMeta" class="text-xs text-slate-500">—</div>
+        </div>
+
+        <div class="mt-3 overflow-auto border border-slate-200 rounded-2xl">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-100 text-slate-700 sticky top-0">
+              <tr class="text-left">
+                <th class="p-3 font-semibold">Cliente</th>
+                <th class="p-3 font-semibold text-right">Reservas</th>
+                <th class="p-3 font-semibold text-right">Stock reservado</th>
+                <th class="p-3 font-semibold text-right">Pedido reservado</th>
+                <th class="p-3 font-semibold text-right">Total unidades</th>
+              </tr>
+            </thead>
+            <tbody id="clientSummaryBody" class="divide-y divide-slate-200"></tbody>
+          </table>
         </div>
       </section>
 
@@ -151,15 +214,16 @@
         <div id="detailView" class="p-4 hidden">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div class="text-sm text-slate-700">Resultados: <span id="detailCount" class="font-semibold mono">0</span></div>
-            <div class="text-xs text-slate-500">“VO” recomendado. En “Ver cálculo” puede descargar PDF.</div>
+            <div class="text-xs text-slate-500">Interno: cálculo completo · Comercial: ficha limpia para cliente.</div>
           </div>
 
           <div class="mt-3 overflow-auto border border-slate-200 rounded-2xl">
-            <table class="min-w-[2200px] w-full text-sm">
+            <table class="min-w-[2450px] w-full text-sm">
               <thead class="bg-slate-100 text-slate-700 sticky top-0">
                 <tr class="text-left">
                   <th class="p-3 font-semibold">Disp.</th>
                   <th class="p-3 font-semibold">Reserva</th>
+                  <th class="p-3 font-semibold">Pago</th>
                   <th class="p-3 font-semibold">Marca</th>
                   <th class="p-3 font-semibold">Modelo</th>
                   <th class="p-3 font-semibold">Estado</th>
@@ -167,16 +231,14 @@
                   <th class="p-3 font-semibold">Nº máquina</th>
                   <th class="p-3 font-semibold">Planta</th>
                   <th class="p-3 font-semibold">F. envío</th>
-
                   <th class="p-3 font-semibold text-right">Precio base</th>
                   <th class="p-3 font-semibold text-right">Coste calc.</th>
                   <th class="p-3 font-semibold text-right">VO</th>
-
                   <th class="p-3 font-semibold">Presupuesto</th>
                   <th class="p-3 font-semibold">Cliente reserva</th>
                   <th class="p-3 font-semibold">Representante</th>
-
-                  <th class="p-3 font-semibold">Acción</th>
+                  <th class="p-3 font-semibold">Acción interna</th>
+                  <th class="p-3 font-semibold">Ficha cliente</th>
                   <th class="p-3 font-semibold">Config / Obs</th>
                 </tr>
               </thead>
@@ -187,7 +249,7 @@
       </section>
     </main>
 
-    <!-- Modal -->
+    <!-- Modal cálculo interno -->
     <div id="priceModal" class="hidden fixed inset-0 z-50">
       <div class="absolute inset-0 bg-slate-900/40" data-close="1"></div>
       <div class="absolute inset-0 flex items-center justify-center p-4">
@@ -245,7 +307,99 @@
               <span class="mono">jspdf.umd.min.js</span> y <span class="mono">jspdf.plugin.autotable.min.js</span>.
             </div>
           </div>
+        </div>
+      </div>
+    </div>
 
+    <!-- Modal ficha cliente -->
+    <div id="clientModal" class="hidden fixed inset-0 z-50">
+      <div class="absolute inset-0 bg-slate-900/50" data-close-client="1"></div>
+      <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-soft overflow-hidden">
+          <div class="p-4 border-b border-slate-200 bg-slate-50 flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-xs text-slate-600">Ficha comercial cliente</div>
+              <div id="cTitle" class="text-lg font-semibold truncate">—</div>
+              <div id="cSubtitle" class="text-xs text-slate-500 mt-1">—</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btnClientPdf" class="px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-sm font-semibold">Descargar PDF cliente</button>
+              <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" data-close-client="1">Cerrar</button>
+            </div>
+          </div>
+
+          <div class="p-4 space-y-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="h-12 w-12 rounded-xl bg-slate-900 flex items-center justify-center overflow-hidden">
+                  <img id="cCompanyLogo" class="hidden h-12 w-12 object-cover" alt="ITTDynamics" />
+                  <span id="cCompanyLogoFallback" class="text-white font-black">IT</span>
+                </div>
+                <div class="h-12 w-28 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden">
+                  <img id="cBrandLogo" class="hidden max-h-10 max-w-24 object-contain" alt="Marca" />
+                  <span id="cBrandLogoFallback" class="text-xs text-slate-500">Marca</span>
+                </div>
+              </div>
+
+              <div>
+                <div class="text-xs text-slate-600 mb-1">Precio a mostrar</div>
+                <div class="flex items-center gap-2">
+                  <button id="priceVS" class="price-opt px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm font-semibold">VS</button>
+                  <button id="priceVO" class="price-opt px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm font-semibold">VO</button>
+                  <button id="priceVR" class="price-opt px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm font-semibold">VR</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                <div class="text-xs text-slate-600">Modelo</div>
+                <div id="cModel" class="text-base font-semibold mt-1">—</div>
+              </div>
+              <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                <div class="text-xs text-slate-600">Familia</div>
+                <div id="cFamily" class="text-base font-semibold mt-1">—</div>
+              </div>
+              <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                <div class="text-xs text-slate-600">Disponibilidad</div>
+                <div id="cAvailability" class="text-base font-semibold mt-1">—</div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                <div class="text-xs text-slate-600">Estado</div>
+                <div id="cState" class="text-sm font-semibold mt-1">—</div>
+              </div>
+              <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                <div class="text-xs text-slate-600">Fecha prevista</div>
+                <div id="cDate" class="text-sm font-semibold mt-1">—</div>
+              </div>
+              <div class="bg-slate-900 text-white rounded-2xl p-4">
+                <div class="text-xs text-slate-300">Oferta</div>
+                <div id="cPriceLabel" class="text-sm font-semibold mt-1">—</div>
+                <div id="cPriceValue" class="text-3xl font-black mono mt-1">—</div>
+              </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-2xl p-4">
+              <div class="text-xs text-slate-600">Configuración / observaciones</div>
+              <div id="cConfig" class="text-sm text-slate-800 mt-2 leading-6">—</div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-2xl p-4">
+              <div class="flex items-center justify-between gap-3">
+                <div class="text-xs text-slate-600">Observaciones comerciales</div>
+                <div id="cObsCount" class="text-xs text-slate-400">0 / 300</div>
+              </div>
+              <textarea id="cObsInput" maxlength="300" class="mt-2 w-full min-h-[110px] rounded-xl border-slate-300 bg-white ring-soft text-sm" placeholder="Ej.: Entrega prevista sujeta a disponibilidad. Incluye configuración comercial acordada. Oferta válida salvo error tipográfico."></textarea>
+            </div>
+
+            <div id="clientPdfHint" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+              No se ha podido cargar jsPDF. Si su red bloquea CDNs, descargue y ponga junto a index.html:
+              <span class="mono">jspdf.umd.min.js</span> y <span class="mono">jspdf.plugin.autotable.min.js</span>.
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -254,28 +408,26 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  const AUTOLOAD_URL = "./data.xlsx"; // opcional
+  const AUTOLOAD_URL = "./data.xlsx";
 
-  // Logos
   const BRAND_LOGOS = {
     "bobcat": "./bobcat-decal-6731507-57_1.PNG",
     "ausa": "./ausa.PNG"
   };
   const COMPANY_LOGO_CANDIDATES = ["./logo_itd.png","./logo_ittd.png","./logo_itd.jpg","./logo_itd.jpeg"];
 
-  // Márgenes (Opción A)
   const FAMILY_RULES = [
-    { key: "cargadora compacta ruedas",   keywords: ["cargadora compacta","ruedas"], vs:0.18, vo:0.15, vr:0.12 },
-    { key: "cargadora compacta orugas",   keywords: ["cargadora compacta","orugas"], vs:0.18, vo:0.15, vr:0.12 },
-    { key: "cargadora compacta",          keywords: ["cargadora compacta"],          vs:0.18, vo:0.15, vr:0.12 },
-    { key: "mini excavadora",             keywords: ["mini","excav"],                 vs:0.15, vo:0.12, vr:0.10 },
-    { key: "midi excavadora",             keywords: ["midi","excav"],                 vs:0.12, vo:0.10, vr:0.08 },
-    { key: "accesorios obra publica",     keywords: ["accesor"],                      vs:0.30, vo:0.25, vr:0.20 },
-    { key: "material mantenimiento",      keywords: ["mantenimiento"],                vs:0.30, vo:0.25, vr:0.20 },
-    { key: "vehiculo transporte y carga", keywords: ["vehiculo","transporte"],        vs:0.18, vo:0.15, vr:0.12 },
-    { key: "dumper",                      keywords: ["dumper"],                       vs:0.18, vo:0.15, vr:0.12 },
-    { key: "telescopica",                 keywords: ["telescop"],                     vs:0.12, vo:0.10, vr:0.08 },
-    { key: "pala cargadora",              keywords: ["pala","cargador"],              vs:0.15, vo:0.12, vr:0.08 },
+    { key: "cargadora compacta ruedas", keywords: ["cargadora compacta","ruedas"], vs:0.18, vo:0.15, vr:0.12 },
+    { key: "cargadora compacta orugas", keywords: ["cargadora compacta","orugas"], vs:0.18, vo:0.15, vr:0.12 },
+    { key: "cargadora compacta", keywords: ["cargadora compacta"], vs:0.18, vo:0.15, vr:0.12 },
+    { key: "mini excavadora", keywords: ["mini","excav"], vs:0.15, vo:0.12, vr:0.10 },
+    { key: "midi excavadora", keywords: ["midi","excav"], vs:0.12, vo:0.10, vr:0.08 },
+    { key: "accesorios obra publica", keywords: ["accesor"], vs:0.30, vo:0.25, vr:0.20 },
+    { key: "material mantenimiento", keywords: ["mantenimiento"], vs:0.30, vo:0.25, vr:0.20 },
+    { key: "vehiculo transporte y carga", keywords: ["vehiculo","transporte"], vs:0.18, vo:0.15, vr:0.12 },
+    { key: "dumper", keywords: ["dumper"], vs:0.18, vo:0.15, vr:0.12 },
+    { key: "telescopica", keywords: ["telescop"], vs:0.12, vo:0.10, vr:0.08 },
+    { key: "pala cargadora", keywords: ["pala","cargador"], vs:0.15, vo:0.12, vr:0.08 },
   ];
 
   const state = {
@@ -283,25 +435,34 @@
     filtered: [],
     view: "summary",
     filters: {
-      marca:"todas", familia:"todas", modelo:"todas", estado:"todas",
-      subfamilia:"todas", tipo:"todas",
-      reserva:"no", includeStock:true, includePedido:true, search:""
+      marca:"todas",
+      familia:"todas",
+      modelo:"todas",
+      estado:"todas",
+      representante:"todas",
+      cliente:"todas",
+      reserva:"no",
+      pago:"todas",
+      includeStock:true,
+      includePedido:true,
+      search:""
     },
-    currentModalRow: null
+    currentModalRow: null,
+    currentClientRow: null,
+    currentClientPrice: "VS"
   };
 
-  // Helpers
   function escapeHtml(s){return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
-  function normText(s){return String(s??"").trim().toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();}
+  function normText(s){return String(s??"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();}
   function cleanText(t){const s=String(t??"").trim(); if(!s) return ""; if(s.toLowerCase()==="nan") return ""; return s;}
   function parseNumber(v){
     if (v===null || v===undefined) return null;
     if (typeof v==="number" && Number.isFinite(v)) return v;
     const s=String(v).trim(); if(!s) return null;
-    let x=s.replace(/\\s/g,"");
+    let x=s.replace(/\s/g,"");
     const hasComma=x.includes(","), hasDot=x.includes(".");
     if(hasComma && hasDot){
-      if(x.lastIndexOf(",")>x.lastIndexOf(".")) x=x.replace(/\\./g,"").replace(",",".");
+      if(x.lastIndexOf(",")>x.lastIndexOf(".")) x=x.replace(/\./g,"").replace(",",".");
       else x=x.replace(/,/g,"");
     } else if(hasComma && !hasDot){ x=x.replace(",","."); }
     const n=Number(x); return Number.isFinite(n)?n:null;
@@ -314,19 +475,22 @@
     if(typeof v==="number"){ const epoch=new Date(Date.UTC(1899,11,30)); const d=new Date(epoch.getTime()+v*86400000); return isNaN(d)?null:d; }
     const d=new Date(String(v).trim()); return isNaN(d)?null:d;
   }
-  function fmtDate(d){ if(!d || !(d instanceof Date) || isNaN(d)) return ""; const dd=String(d.getDate()).padStart(2,"0"); const mm=String(d.getMonth()+1).padStart(2,"0"); return `${dd}/${mm}/${d.getFullYear()}`; }
+  function fmtDate(d){ if(!d || !(d instanceof Date) || isNaN(d)) return "—"; const dd=String(d.getDate()).padStart(2,"0"); const mm=String(d.getMonth()+1).padStart(2,"0"); return `${dd}/${mm}/${d.getFullYear()}`; }
   function fmtIntOrND(n){ if(n==null || !Number.isFinite(n)) return "N/D"; return String(Math.round(n)); }
 
   function badge(text, kind){
     if(kind==="stock") return `<span class="badge bg-emerald-50 text-emerald-800 border border-emerald-200">${escapeHtml(text)}</span>`;
     if(kind==="pedido") return `<span class="badge bg-sky-50 text-sky-800 border border-sky-200">${escapeHtml(text)}</span>`;
+    if(kind==="pagada") return `<span class="badge bg-violet-50 text-violet-800 border border-violet-200">${escapeHtml(text)}</span>`;
+    if(kind==="nopagada") return `<span class="badge bg-amber-50 text-amber-800 border border-amber-200">${escapeHtml(text)}</span>`;
     return `<span class="badge bg-slate-50 text-slate-700 border border-slate-200">${escapeHtml(text)}</span>`;
   }
   function badgeReserva(reservada){
-    if(reservada === "Sí"){
-      return `<span class="badge bg-rose-50 text-rose-800 border border-rose-200">⚠️ <span>RESERVA</span></span>`;
-    }
+    if(reservada === "Sí") return `<span class="badge bg-rose-50 text-rose-800 border border-rose-200">⚠️ <span>RESERVA</span></span>`;
     return `<span class="badge bg-emerald-50 text-emerald-800 border border-emerald-200">✅ <span>DISPONIBLE</span></span>`;
+  }
+  function badgePago(paid){
+    return paid ? badge("PAGADA", "pagada") : badge("NO PAGADA", "nopagada");
   }
 
   function setStatus(text, color="bg-slate-300"){
@@ -342,7 +506,6 @@
     $("detailView").classList.toggle("hidden", view!=="detail");
   }
 
-  // Load scripts (XLSX + jsPDF)
   function loadScript(src){
     return new Promise((resolve, reject)=>{
       const s=document.createElement("script");
@@ -352,12 +515,14 @@
       document.head.appendChild(s);
     });
   }
+
   async function ensureXLSX(){
     if(window.XLSX) return true;
     try { await loadScript("./xlsx.full.min.js"); if(window.XLSX) return true; } catch {}
     try { await loadScript("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"); return !!window.XLSX; } catch {}
     return false;
   }
+
   async function ensureJsPdf(){
     if(window.jspdf && window.jspdf.jsPDF) return true;
     try { await loadScript("./jspdf.umd.min.js"); } catch {}
@@ -368,7 +533,6 @@
     return !!(window.jspdf && window.jspdf.jsPDF);
   }
 
-  // Logos
   async function tryLoadImage(imgEl, fallbackEl, url, fallbackText){
     imgEl.classList.add("hidden");
     fallbackEl.classList.remove("hidden");
@@ -401,6 +565,9 @@
         $("companyLogo").src = url + "?v=" + Date.now();
         $("companyLogo").classList.remove("hidden");
         $("companyLogoFallback").classList.add("hidden");
+        $("cCompanyLogo").src = url + "?v=" + Date.now();
+        $("cCompanyLogo").classList.remove("hidden");
+        $("cCompanyLogoFallback").classList.add("hidden");
         return;
       }
     }
@@ -418,7 +585,17 @@
     await tryLoadImage($("brandLogo"), $("brandLogoFallback"), url, state.filters.marca);
   }
 
-  // Pricing rules
+  async function updateClientBrandLogo(marca){
+    const v = normText(marca);
+    if(!v || !BRAND_LOGOS[v]){
+      $("cBrandLogo").classList.add("hidden");
+      $("cBrandLogoFallback").classList.remove("hidden");
+      $("cBrandLogoFallback").textContent = marca || "Marca";
+      return;
+    }
+    await tryLoadImage($("cBrandLogo"), $("cBrandLogoFallback"), BRAND_LOGOS[v], marca || "Marca");
+  }
+
   function getFamilyMargins(familiaRaw){
     const f = normText(familiaRaw);
     if(!f) return null;
@@ -428,20 +605,20 @@
     }
     return null;
   }
+
   function offerPrice(costTotal, margin){
     if(costTotal==null || !Number.isFinite(costTotal)) return null;
     if(margin==null || !Number.isFinite(margin) || margin>=1) return null;
-    return ceilUp(costTotal / (1 - margin)); // Opción A
+    return ceilUp(costTotal / (1 - margin));
   }
 
-  // ✅ NEW: canonicalizeRows robusto (evita que N pise a L si hay cabeceras duplicadas)
   function canonicalizeRows(jsonRows){
     const keyMap = new Map();
     if (jsonRows.length) {
       Object.keys(jsonRows[0]).forEach((k) => {
         const nk = normText(k);
         if (!keyMap.has(nk)) keyMap.set(nk, []);
-        keyMap.get(nk).push(k); // mantiene orden (L antes que N)
+        keyMap.get(nk).push(k);
       });
     }
 
@@ -450,7 +627,7 @@
         const nk = normText(v);
         const candidates = keyMap.get(nk);
         if (candidates && candidates.length) {
-          const realKey = candidates[0]; // 👈 primera (columna más a la izquierda)
+          const realKey = candidates[0];
           if (row[realKey] !== undefined) return row[realKey];
         }
       }
@@ -467,7 +644,6 @@
       const estadoPago=String(pickFirst(r,["Estado Pago","EstadoPago"])).trim();
       const paid=normText(estadoPago)==="pagada";
 
-      // ✅ Cliente reserva desde columna L ("Razon social"/"Razón social")
       const razonSocial = String(pickFirst(r,["Razon social","Razón social"])).trim();
       const presupuesto = String(pickFirst(r,["Presupuesto comercial","Presupuesto"])).trim();
       const clienteReserva = String(pickFirst(r,["Cliente reserva","Razon social","Razón social"])).trim()
@@ -508,41 +684,56 @@
         marca,
         modelo: String(pickFirst(r,["Modelo"])).trim(),
         familia,
-        subfamilia: String(pickFirst(r,["Subfamilia"])).trim(),
-        tipo: String(pickFirst(r,["Tipo"])).trim(),
         estado: String(pickFirst(r,["Estado"])).trim(),
         numMaquina: String(pickFirst(r,["Nº de maquina","No de maquina","N° de maquina"])).trim(),
         plantaStock: String(pickFirst(r,["Planta stock"])).trim(),
         plantaRecepcion: String(pickFirst(r,["Planta recepcion","Planta recepción"])).trim(),
         shipDate,
-
         precioBase, dnp,
         preentrega,
         portes: portesRaw ? ceilUp(portesRaw) : 0,
         costTotal,
         margins, pVS, pVO, pVR,
-
         presupuesto,
         clienteReserva,
         representante,
-
         cfgShort
       };
     });
   }
 
-  // Filters (cascada)
   function uniqueSorted(arr){
     return Array.from(new Set(arr.filter(v=>String(v||"").trim()))).sort((a,b)=>String(a).localeCompare(String(b),"es"));
   }
+
   function fillSelect(sel, values, current){
     sel.innerHTML = `<option value="todas">Todas</option>` + values.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
     sel.value = (current && (current==="todas" || values.includes(current))) ? current : "todas";
   }
 
+  function splitSearchTokens(searchValue){
+    return normText(searchValue).split(/\s+/).map(t => t.trim()).filter(Boolean);
+  }
+
+  function buildSearchHay(r){
+    return [r.marca,r.modelo,r.presupuesto,r.clienteReserva,r.representante].map(normText).join(" ");
+  }
+
+  function matchesAllTokens(haystack, tokens){
+    return tokens.every(token => haystack.includes(token));
+  }
+
+  function passPagoFilter(r, pago){
+    if(pago === "todas") return true;
+    if(pago === "pagada") return r.paid === true;
+    if(pago === "nopagada") return r.paid === false;
+    return true;
+  }
+
   function baseFiltered(excludeKey=null){
     const f=state.filters;
-    const q=normText(f.search);
+    const tokens=splitSearchTokens(f.search);
+
     return state.rows.filter(r=>{
       if(excludeKey!=="includeStock" && excludeKey!=="includePedido"){
         if(!f.includeStock && r.isStock) return false;
@@ -552,16 +743,16 @@
         if(f.reserva==="no" && r.reservada!=="No") return false;
         if(f.reserva==="si" && r.reservada!=="Sí") return false;
       }
+      if(excludeKey!=="pago" && !passPagoFilter(r, f.pago)) return false;
       if(excludeKey!=="marca" && f.marca!=="todas" && r.marca!==f.marca) return false;
       if(excludeKey!=="familia" && f.familia!=="todas" && r.familia!==f.familia) return false;
       if(excludeKey!=="modelo" && f.modelo!=="todas" && r.modelo!==f.modelo) return false;
       if(excludeKey!=="estado" && f.estado!=="todas" && r.estado!==f.estado) return false;
-      if(excludeKey!=="subfamilia" && f.subfamilia!=="todas" && r.subfamilia!==f.subfamilia) return false;
-      if(excludeKey!=="tipo" && f.tipo!=="todas" && r.tipo!==f.tipo) return false;
-
-      if(excludeKey!=="search" && q){
-        const hay=[r.numMaquina,r.marca,r.modelo,r.familia,r.subfamilia,r.tipo,r.estado,r.presupuesto,r.clienteReserva,r.representante].map(normText).join(" ");
-        if(!hay.includes(q)) return false;
+      if(excludeKey!=="representante" && f.representante!=="todas" && r.representante!==f.representante) return false;
+      if(excludeKey!=="cliente" && f.cliente!=="todas" && r.clienteReserva!==f.cliente) return false;
+      if(excludeKey!=="search" && tokens.length){
+        const hay = buildSearchHay(r);
+        if(!matchesAllTokens(hay, tokens)) return false;
       }
       return true;
     });
@@ -572,8 +763,9 @@
     fillSelect($("fFamilia"), uniqueSorted(baseFiltered("familia").map(r=>r.familia)), state.filters.familia);
     fillSelect($("fModelo"), uniqueSorted(baseFiltered("modelo").map(r=>r.modelo)), state.filters.modelo);
     fillSelect($("fEstado"), uniqueSorted(baseFiltered("estado").map(r=>r.estado)), state.filters.estado);
-    fillSelect($("fSubfamilia"), uniqueSorted(baseFiltered("subfamilia").map(r=>r.subfamilia)), state.filters.subfamilia);
-    fillSelect($("fTipo"), uniqueSorted(baseFiltered("tipo").map(r=>r.tipo)), state.filters.tipo);
+    fillSelect($("fRepresentante"), uniqueSorted(baseFiltered("representante").map(r=>r.representante)), state.filters.representante);
+    fillSelect($("fCliente"), uniqueSorted(baseFiltered("cliente").map(r=>r.clienteReserva)), state.filters.cliente);
+    $("fPago").value = state.filters.pago;
   }
 
   function syncFilterUI(){
@@ -581,36 +773,34 @@
     $("fFamilia").value=state.filters.familia;
     $("fModelo").value=state.filters.modelo;
     $("fEstado").value=state.filters.estado;
-    $("fSubfamilia").value=state.filters.subfamilia;
-    $("fTipo").value=state.filters.tipo;
+    $("fRepresentante").value=state.filters.representante;
+    $("fCliente").value=state.filters.cliente;
     $("fReserva").value=state.filters.reserva;
+    $("fPago").value=state.filters.pago;
     $("fSearch").value=state.filters.search;
     $("fInclStock").checked=!!state.filters.includeStock;
     $("fInclPedido").checked=!!state.filters.includePedido;
   }
 
-  // Apply filters + sort
   function applyFilters(){
     const f=state.filters;
-    const q=normText(f.search);
+    const tokens=splitSearchTokens(f.search);
 
     let out = state.rows.filter(r=>{
       if(!f.includeStock && r.isStock) return false;
       if(!f.includePedido && r.isPedido) return false;
-
       if(f.reserva==="no" && r.reservada!=="No") return false;
       if(f.reserva==="si" && r.reservada!=="Sí") return false;
-
+      if(!passPagoFilter(r, f.pago)) return false;
       if(f.marca!=="todas" && r.marca!==f.marca) return false;
       if(f.familia!=="todas" && r.familia!==f.familia) return false;
       if(f.modelo!=="todas" && r.modelo!==f.modelo) return false;
       if(f.estado!=="todas" && r.estado!==f.estado) return false;
-      if(f.subfamilia!=="todas" && r.subfamilia!==f.subfamilia) return false;
-      if(f.tipo!=="todas" && r.tipo!==f.tipo) return false;
-
-      if(q){
-        const hay=[r.numMaquina,r.marca,r.modelo,r.familia,r.subfamilia,r.tipo,r.estado,r.presupuesto,r.clienteReserva,r.representante].map(normText).join(" ");
-        if(!hay.includes(q)) return false;
+      if(f.representante!=="todas" && r.representante!==f.representante) return false;
+      if(f.cliente!=="todas" && r.clienteReserva!==f.cliente) return false;
+      if(tokens.length){
+        const hay = buildSearchHay(r);
+        if(!matchesAllTokens(hay, tokens)) return false;
       }
       return true;
     });
@@ -638,19 +828,115 @@
     $("metaResults").textContent=`${out.length} resultado(s)`;
   }
 
-  // Render KPIs
   function renderKPIs(){
-    $("kTotal").textContent=String(state.rows.length);
-    $("kStock").textContent=String(state.rows.filter(r=>r.isStock).length);
-    $("kPedido").textContent=String(state.rows.filter(r=>r.isPedido).length);
-    $("kRes").textContent=String(state.rows.filter(r=>r.reservada==="Sí").length);
-    $("kDisp").textContent=String(state.rows.filter(r=>r.reservada==="No").length);
+    const rows = state.filtered.length ? state.filtered : state.rows;
+    const total = rows.length;
+    const stock = rows.filter(r=>r.isStock).length;
+    const pedido = rows.filter(r=>r.isPedido).length;
+    const reservadas = rows.filter(r=>r.reservada==="Sí").length;
+    const disponibles = rows.filter(r=>r.reservada==="No").length;
+    const stockReal = rows.filter(r=>r.isStock && r.reservada==="No").length;
+    const pedidoLibre = rows.filter(r=>r.isPedido && r.reservada==="No").length;
+    const reservasConRep = rows.filter(r=>r.reservada==="Sí" && String(r.representante||"").trim()).length;
+    const clientesReserva = new Set(rows.filter(r=>r.reservada==="Sí" && String(r.clienteReserva||"").trim()).map(r=>String(r.clienteReserva).trim())).size;
+
+    $("kTotal").textContent=String(total);
+    $("kStock").textContent=String(stock);
+    $("kPedido").textContent=String(pedido);
+    $("kRes").textContent=String(reservadas);
+    $("kDisp").textContent=String(disponibles);
+    $("kStockReal").textContent=String(stockReal);
+    $("kPedidoLibre").textContent=String(pedidoLibre);
+    $("kResRep").textContent=String(reservasConRep);
+    $("kClientesRes").textContent=String(clientesReserva);
   }
 
-  // Render summary
+  function renderRepresentativeSummary(){
+    const rows = state.filtered.length ? state.filtered : state.rows;
+    const map = new Map();
+
+    for(const r of rows){
+      const rep = String(r.representante || "").trim() || "Sin representante";
+      if(!map.has(rep)) map.set(rep, { rep, reservas:0, stockRes:0, pedidoRes:0, total:0 });
+      const g = map.get(rep);
+      g.total++;
+      if(r.reservada === "Sí"){
+        g.reservas++;
+        if(r.isStock) g.stockRes++;
+        if(r.isPedido) g.pedidoRes++;
+      }
+    }
+
+    const groups = Array.from(map.values()).sort((a,b)=>{
+      if(b.reservas !== a.reservas) return b.reservas - a.reservas;
+      if(b.total !== a.total) return b.total - a.total;
+      return a.rep.localeCompare(b.rep, "es");
+    });
+
+    if(!groups.length){
+      $("repSummaryBody").innerHTML = `<tr><td class="p-3 text-slate-500" colspan="5">Sin datos para mostrar.</td></tr>`;
+      $("repSummaryMeta").textContent = "0 representante(s)";
+      return;
+    }
+
+    $("repSummaryBody").innerHTML = groups.map(g => `
+      <tr class="hover:bg-slate-50">
+        <td class="p-3 font-medium">${escapeHtml(g.rep)}</td>
+        <td class="p-3 text-right mono">${g.reservas}</td>
+        <td class="p-3 text-right mono">${g.stockRes}</td>
+        <td class="p-3 text-right mono">${g.pedidoRes}</td>
+        <td class="p-3 text-right mono font-semibold">${g.total}</td>
+      </tr>
+    `).join("");
+
+    $("repSummaryMeta").textContent = `${groups.length} representante(s)`;
+  }
+
+  function renderClientSummary(){
+    const rows = state.filtered.length ? state.filtered : state.rows;
+    const map = new Map();
+
+    for(const r of rows){
+      const cliente = String(r.clienteReserva || "").trim() || "Sin cliente";
+      if(!map.has(cliente)) map.set(cliente, { cliente, reservas:0, stockRes:0, pedidoRes:0, total:0 });
+      const g = map.get(cliente);
+      g.total++;
+      if(r.reservada === "Sí"){
+        g.reservas++;
+        if(r.isStock) g.stockRes++;
+        if(r.isPedido) g.pedidoRes++;
+      }
+    }
+
+    const groups = Array.from(map.values()).sort((a,b)=>{
+      if(b.reservas !== a.reservas) return b.reservas - a.reservas;
+      if(b.total !== a.total) return b.total - a.total;
+      return a.cliente.localeCompare(b.cliente, "es");
+    });
+
+    if(!groups.length){
+      $("clientSummaryBody").innerHTML = `<tr><td class="p-3 text-slate-500" colspan="5">Sin datos para mostrar.</td></tr>`;
+      $("clientSummaryMeta").textContent = "0 cliente(s)";
+      return;
+    }
+
+    $("clientSummaryBody").innerHTML = groups.map(g => `
+      <tr class="hover:bg-slate-50">
+        <td class="p-3 font-medium">${escapeHtml(g.cliente)}</td>
+        <td class="p-3 text-right mono">${g.reservas}</td>
+        <td class="p-3 text-right mono">${g.stockRes}</td>
+        <td class="p-3 text-right mono">${g.pedidoRes}</td>
+        <td class="p-3 text-right mono font-semibold">${g.total}</td>
+      </tr>
+    `).join("");
+
+    $("clientSummaryMeta").textContent = `${groups.length} cliente(s)`;
+  }
+
   function renderSummary(){
     const base=baseFiltered(null);
     const map=new Map();
+
     for(const r of base){
       const key=[r.marca,r.modelo,r.estado,r.familia].join("||");
       if(!map.has(key)) map.set(key,{marca:r.marca, modelo:r.modelo, estado:r.estado, familia:r.familia, sd:0,sr:0,pd:0,pr:0,t:0});
@@ -659,6 +945,7 @@
       if(r.isStock) (r.reservada==="Sí"?g.sr++:g.sd++);
       if(r.isPedido) (r.reservada==="Sí"?g.pr++:g.pd++);
     }
+
     const groups=Array.from(map.values()).sort((a,b)=>{
       const c1=a.marca.localeCompare(b.marca,"es"); if(c1) return c1;
       const c2=a.modelo.localeCompare(b.modelo,"es"); if(c2) return c2;
@@ -688,31 +975,32 @@
       state.filters.modelo=tr.dataset.modelo||"todas";
       state.filters.estado=tr.dataset.estado||"todas";
       state.filters.familia=tr.dataset.familia||"todas";
-      rebuildOptions(); syncFilterUI(); updateBrandLogo(); renderAll(); renderKPIs(); setView("detail");
+      rebuildOptions();
+      syncFilterUI();
+      updateBrandLogo();
+      renderAll();
+      renderKPIs();
+      setView("detail");
     };
   }
 
-  // Render detail
   function renderDetail(){
     $("detailBody").innerHTML = state.filtered.map((r,i)=>{
       const disp = r.isStock ? badge("STOCK","stock") : badge("PEDIDO","pedido");
       const resBadge = badgeReserva(r.reservada);
-
+      const pagoBadge = badgePago(r.paid);
       const planta = r.isStock ? r.plantaStock : r.plantaRecepcion;
-      const fenv = r.isPedido ? fmtDate(r.shipDate) : "";
+      const fenv = r.isPedido ? fmtDate(r.shipDate) : "—";
       const precioBase = (r.precioBase==null) ? "N/D" : String(ceilUp(r.precioBase));
       const coste = fmtIntOrND(r.costTotal);
       const vo = fmtIntOrND(r.pVO);
-
-      const rowCls =
-        r.reservada === "Sí"
-          ? "bg-rose-50/70"
-          : ((i%2===0) ? "bg-white" : "bg-slate-50/40");
+      const rowCls = r.reservada === "Sí" ? "bg-rose-50/70" : ((i%2===0) ? "bg-white" : "bg-slate-50/40");
 
       return `
         <tr class="${rowCls} hover:bg-slate-50 align-top">
           <td class="p-3">${disp}</td>
           <td class="p-3">${resBadge}</td>
+          <td class="p-3">${pagoBadge}</td>
           <td class="p-3">${escapeHtml(r.marca)}</td>
           <td class="p-3 font-semibold">${escapeHtml(r.modelo)}</td>
           <td class="p-3">${escapeHtml(r.estado)}</td>
@@ -720,33 +1008,41 @@
           <td class="p-3 mono">${escapeHtml(r.numMaquina)}</td>
           <td class="p-3">${escapeHtml(planta||"")}</td>
           <td class="p-3 mono">${escapeHtml(fenv)}</td>
-
           <td class="p-3 text-right mono">${precioBase==="N/D" ? `<span class="text-slate-400">N/D</span>` : `<span class="font-semibold">${escapeHtml(precioBase)}</span>`}</td>
           <td class="p-3 text-right mono">${coste==="N/D" ? `<span class="text-slate-400">N/D</span>` : `<span class="font-semibold">${escapeHtml(coste)}</span>`}</td>
           <td class="p-3 text-right mono">${vo==="N/D" ? `<span class="text-slate-400">N/D</span>` : `<span class="font-black">${escapeHtml(vo)}</span>`}</td>
-
           <td class="p-3">${escapeHtml(r.presupuesto || "")}</td>
           <td class="p-3">${escapeHtml(r.clienteReserva || "")}</td>
           <td class="p-3">${escapeHtml(r.representante || "")}</td>
-
           <td class="p-3">
             <button class="px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-sm font-semibold" data-action="calc" data-idx="${r._idx}">
               Ver cálculo
             </button>
           </td>
-
+          <td class="p-3">
+            <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm font-semibold" data-action="client" data-idx="${r._idx}">
+              Ficha cliente
+            </button>
+          </td>
           <td class="p-3 text-xs text-slate-700">${escapeHtml(r.cfgShort || "")}</td>
         </tr>
       `;
     }).join("");
 
     $("detailBody").onclick = (ev)=>{
-      const btn=ev.target.closest("button[data-action='calc']");
-      if(!btn) return;
-      const idx=Number(btn.dataset.idx);
-      const row = state.rows.find(x=>x._idx===idx);
-      if(!row) return;
-      openModal(row);
+      const btnCalc=ev.target.closest("button[data-action='calc']");
+      if(btnCalc){
+        const idx=Number(btnCalc.dataset.idx);
+        const row = state.rows.find(x=>x._idx===idx);
+        if(row) openModal(row);
+        return;
+      }
+      const btnClient=ev.target.closest("button[data-action='client']");
+      if(btnClient){
+        const idx=Number(btnClient.dataset.idx);
+        const row = state.rows.find(x=>x._idx===idx);
+        if(row) openClientModal(row);
+      }
     };
   }
 
@@ -754,9 +1050,10 @@
     applyFilters();
     renderSummary();
     renderDetail();
+    renderRepresentativeSummary();
+    renderClientSummary();
   }
 
-  // Modal
   function openModal(row){
     state.currentModalRow = row;
 
@@ -802,14 +1099,207 @@
     state.currentModalRow = null;
   }
 
+  function getClientPriceInfo(row){
+    const map = {
+      VS: { label: "VS", value: row.pVS },
+      VO: { label: "VO", value: row.pVO },
+      VR: { label: "VR", value: row.pVR }
+    };
+    return map[state.currentClientPrice] || map.VS;
+  }
+
+  function paintClientPriceButtons(){
+    ["VS","VO","VR"].forEach(code=>{
+      const btn = $("price" + code);
+      btn.classList.toggle("active", state.currentClientPrice === code);
+    });
+  }
+
+  function updateClientObsCounter(){
+    const len = ($("cObsInput").value || "").length;
+    $("cObsCount").textContent = `${len} / 300`;
+  }
+
+  function updateClientPreview(){
+    const row = state.currentClientRow;
+    if(!row) return;
+
+    const info = getClientPriceInfo(row);
+    $("cPriceLabel").textContent = "Oferta";
+    $("cPriceValue").textContent = fmtIntOrND(info.value);
+    paintClientPriceButtons();
+    updateClientObsCounter();
+  }
+
+  async function openClientModal(row){
+    state.currentClientRow = row;
+    state.currentClientPrice = "VS";
+
+    $("cTitle").textContent = `${row.marca} · ${row.modelo}`;
+    $("cSubtitle").textContent = `${row.isStock ? "STOCK DISPONIBLE" : "PEDIDO"} · ${row.familia || "—"}`;
+    $("cModel").textContent = row.modelo || "—";
+    $("cFamily").textContent = row.familia || "—";
+    $("cAvailability").textContent = row.isStock ? "Stock" : "Pedido";
+    $("cState").textContent = row.estado || "—";
+    $("cDate").textContent = row.isPedido ? fmtDate(row.shipDate) : "Disponible";
+    $("cConfig").textContent = row.cfgShort || "Sin observaciones.";
+    $("cObsInput").value = "";
+    await updateClientBrandLogo(row.marca);
+    updateClientPreview();
+    $("clientPdfHint").classList.add("hidden");
+    $("clientModal").classList.remove("hidden");
+  }
+
+  function closeClientModal(){
+    $("clientModal").classList.add("hidden");
+    state.currentClientRow = null;
+  }
+
   $("priceModal").addEventListener("click",(ev)=>{
     if(ev.target.closest("[data-close='1']")) closeModal();
   });
 
-  // PDF
+  $("clientModal").addEventListener("click",(ev)=>{
+    if(ev.target.closest("[data-close-client='1']")) closeClientModal();
+  });
+
+  $("priceVS").addEventListener("click", ()=>{ state.currentClientPrice = "VS"; updateClientPreview(); });
+  $("priceVO").addEventListener("click", ()=>{ state.currentClientPrice = "VO"; updateClientPreview(); });
+  $("priceVR").addEventListener("click", ()=>{ state.currentClientPrice = "VR"; updateClientPreview(); });
+  $("cObsInput").addEventListener("input", updateClientObsCounter);
+
   function safeFilename(s){
-    return String(s||"").replace(/[^a-zA-Z0-9\\-_]+/g,"_").replace(/^_+|_+$/g,"").slice(0,80) || "oferta";
+    return String(s||"").replace(/[^a-zA-Z0-9\-_]+/g,"_").replace(/^_+|_+$/g,"").slice(0,80) || "oferta";
   }
+
+  async function imgUrlToImageInfo(url){
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try{
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          resolve({
+            dataUrl: canvas.toDataURL("image/png"),
+            width: img.naturalWidth,
+            height: img.naturalHeight
+          });
+        }catch{
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url + (url.includes("?") ? "&" : "?") + "v=" + Date.now();
+    });
+  }
+
+  async function drawPdfLogos(doc, row){
+    const topY = 24;
+
+    for(const url of COMPANY_LOGO_CANDIDATES){
+      const info = await imgUrlToImageInfo(url);
+      if(info && info.dataUrl){
+        try{
+          doc.addImage(info.dataUrl, "PNG", 40, topY, 40, 40);
+        } catch {}
+        break;
+      }
+    }
+
+    const brandUrl = BRAND_LOGOS[normText(row.marca)];
+    if(brandUrl){
+      const info = await imgUrlToImageInfo(brandUrl);
+      if(info && info.dataUrl && info.width && info.height){
+        const maxW = 110;
+        const maxH = 36;
+        const ratio = Math.min(maxW / info.width, maxH / info.height);
+        const drawW = info.width * ratio;
+        const drawH = info.height * ratio;
+        const x = 555 - drawW;
+        const y = topY + ((maxH - drawH) / 2);
+        try{
+          doc.addImage(info.dataUrl, "PNG", x, y, drawW, drawH);
+        } catch {}
+      }
+    }
+  }
+
+  function buildExportRows(rows){
+    return rows.map(r => ({
+      "Marca": r.marca || "",
+      "Modelo": r.modelo || "",
+      "Estado": r.estado || "",
+      "Familia": r.familia || "",
+      "Situación": r.isStock ? "STOCK" : (r.isPedido ? "PEDIDO" : r.situacion || ""),
+      "Reserva": r.reservada || "",
+      "Pago": r.paid ? "Pagada" : "No pagada",
+      "Nº máquina": r.numMaquina || "",
+      "Planta": r.isStock ? (r.plantaStock || "") : (r.plantaRecepcion || ""),
+      "Fecha envío": r.isPedido ? fmtDate(r.shipDate) : "",
+      "Precio base": r.precioBase==null ? "" : ceilUp(r.precioBase),
+      "Coste calc.": r.costTotal==null ? "" : r.costTotal,
+      "VS": r.pVS==null ? "" : r.pVS,
+      "VO": r.pVO==null ? "" : r.pVO,
+      "VR": r.pVR==null ? "" : r.pVR,
+      "Presupuesto": r.presupuesto || "",
+      "Cliente reserva": r.clienteReserva || "",
+      "Representante": r.representante || "",
+      "Config / Obs": r.cfgShort || ""
+    }));
+  }
+
+  function buildExportFilename(){
+    const parts = ["ITTD_Stock"];
+    if(state.filters.marca !== "todas") parts.push(state.filters.marca);
+    if(state.filters.modelo !== "todas") parts.push(state.filters.modelo);
+    if(state.filters.familia !== "todas") parts.push(state.filters.familia);
+    if(state.filters.representante !== "todas") parts.push(state.filters.representante);
+    if(state.filters.cliente !== "todas") parts.push(state.filters.cliente);
+    if(state.filters.pago !== "todas") parts.push(state.filters.pago);
+    parts.push(new Date().toISOString().slice(0,10));
+    return safeFilename(parts.join("_")) + ".xlsx";
+  }
+
+  $("btnExportExcel").addEventListener("click", async ()=>{
+    clearErr();
+    try{
+      if(!state.filtered.length){
+        showErr("No hay resultados filtrados para exportar.");
+        return;
+      }
+      const ok = await ensureXLSX();
+      if(!ok || !window.XLSX){
+        showErr("No se ha podido cargar la librería XLSX para exportar.");
+        return;
+      }
+
+      const exportRows = buildExportRows(state.filtered);
+      const ws = XLSX.utils.json_to_sheet(exportRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Resultados");
+
+      const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+      const widths = [];
+      for(let c = range.s.c; c <= range.e.c; c++){
+        let maxLen = 12;
+        for(let r = range.s.r; r <= range.e.r; r++){
+          const cell = ws[XLSX.utils.encode_cell({r, c})];
+          const v = cell ? String(cell.v ?? "") : "";
+          if(v.length > maxLen) maxLen = Math.min(v.length + 2, 40);
+        }
+        widths.push({ wch: maxLen });
+      }
+      ws["!cols"] = widths;
+
+      XLSX.writeFile(wb, buildExportFilename());
+    } catch(err){
+      showErr("No se ha podido exportar el Excel.<br><span class='text-xs'>Detalle: " + escapeHtml(err?.message || String(err)) + "</span>");
+    }
+  });
 
   $("btnPdf").addEventListener("click", async ()=>{
     const row = state.currentModalRow;
@@ -845,6 +1335,7 @@
       ["Familia", row.familia || ""],
       ["Situación", row.isStock ? "STOCK" : "PEDIDO"],
       ["Reserva", row.reservada === "Sí" ? "RESERVA" : "DISPONIBLE"],
+      ["Pago", row.paid ? "Pagada" : "No pagada"],
       ["Presupuesto", row.presupuesto || ""],
       ["Cliente reserva", row.clienteReserva || ""],
       ["Representante", row.representante || ""]
@@ -860,21 +1351,8 @@
       ["VR", fmtIntOrND(row.pVR)]
     ];
 
-    doc.autoTable({
-      startY: 90,
-      head: [["Campo","Valor"]],
-      body: info,
-      styles: { fontSize: 10, cellPadding: 4 },
-      headStyles: { fillColor: [15,23,42] }
-    });
-
-    doc.autoTable({
-      startY: doc.lastAutoTable.finalY + 14,
-      head: [["Concepto","Importe"]],
-      body: precios,
-      styles: { fontSize: 10, cellPadding: 4 },
-      headStyles: { fillColor: [15,23,42] }
-    });
+    doc.autoTable({ startY: 90, head: [["Campo","Valor"]], body: info, styles: { fontSize: 10, cellPadding: 4 }, headStyles: { fillColor: [15,23,42] } });
+    doc.autoTable({ startY: doc.lastAutoTable.finalY + 14, head: [["Concepto","Importe"]], body: precios, styles: { fontSize: 10, cellPadding: 4 }, headStyles: { fillColor: [15,23,42] } });
 
     doc.setFontSize(9);
     doc.setTextColor(90);
@@ -884,7 +1362,97 @@
     doc.save(fname);
   });
 
-  // Read Excel
+  $("btnClientPdf").addEventListener("click", async ()=>{
+    const row = state.currentClientRow;
+    if(!row) return;
+
+    const ok = await ensureJsPdf();
+    if(!ok){
+      $("clientPdfHint").classList.remove("hidden");
+      return;
+    }
+    $("clientPdfHint").classList.add("hidden");
+
+    const info = getClientPriceInfo(row);
+    const comercialObs = ($("cObsInput").value || "").trim();
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+
+    await drawPdfLogos(doc, row);
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(18);
+    doc.text("Ficha comercial", 40, 88);
+
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text("ITTDynamics", 40, 104);
+    doc.text("Generado: " + new Date().toLocaleString("es-ES"), 40, 118);
+
+    doc.setTextColor(20);
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(20);
+    doc.text(`${row.marca} · ${row.modelo}`, 40, 160);
+
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(11);
+    doc.text(`Familia: ${row.familia || "—"}`, 40, 182);
+    doc.text(`Estado: ${row.estado || "—"}`, 40, 198);
+    doc.text(`Disponibilidad: ${row.isStock ? "Stock" : "Pedido"}`, 40, 214);
+    doc.text(`Fecha prevista: ${row.isPedido ? fmtDate(row.shipDate) : "Disponible"}`, 40, 230);
+
+    doc.setDrawColor(220);
+    doc.roundedRect(40, 260, 515, 78, 12, 12);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(11);
+    doc.setTextColor(90);
+    doc.text("Oferta", 58, 288);
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(28);
+    doc.setTextColor(15,23,42);
+    doc.text(fmtIntOrND(info.value), 58, 320);
+
+    let y = 374;
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(12);
+    doc.setTextColor(20);
+    doc.text("Configuración / observaciones", 40, y);
+
+    const configText = row.cfgShort || "Sin observaciones.";
+    const wrappedConfig = doc.splitTextToSize(configText, 500);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(11);
+    doc.setTextColor(50);
+    doc.text(wrappedConfig, 40, y + 22);
+
+    y += 22 + (wrappedConfig.length * 14) + 18;
+
+    if(comercialObs){
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(12);
+      doc.setTextColor(20);
+      doc.text("Observaciones comerciales", 40, y);
+
+      const wrappedObs = doc.splitTextToSize(comercialObs, 500);
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(11);
+      doc.setTextColor(50);
+      doc.text(wrappedObs, 40, y + 22);
+
+      y += 22 + (wrappedObs.length * 14) + 10;
+    }
+
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    doc.text("Documento comercial orientativo. Consulte disponibilidad y condiciones con ITTDynamics.", 40, 790);
+
+    const fname = safeFilename(`Ficha_Cliente_${row.marca}_${row.modelo}_Oferta`) + ".pdf";
+    doc.save(fname);
+  });
+
   async function readWorkbookFromArrayBuffer(buf){
     const ok = await ensureXLSX();
     if(!ok) throw new Error("No se pudo cargar la librería XLSX (SheetJS).");
@@ -919,7 +1487,10 @@
 
     $("kpisBox").classList.remove("hidden");
     $("filtersBox").classList.remove("hidden");
+    $("repSummaryBox").classList.remove("hidden");
+    $("clientSummaryBox").classList.remove("hidden");
     $("viewsBox").classList.remove("hidden");
+    $("btnExportExcel").classList.remove("hidden");
 
     renderAll();
     renderKPIs();
@@ -928,39 +1499,58 @@
     setStatus(sourceLabel + " · " + new Date().toLocaleString("es-ES"), "bg-emerald-400");
   }
 
-  // UI reset
   function resetUI(){
     clearErr();
     closeModal();
+    closeClientModal();
     state.rows=[];
     state.filtered=[];
     state.view="summary";
-    state.filters={marca:"todas", familia:"todas", modelo:"todas", estado:"todas", subfamilia:"todas", tipo:"todas", reserva:"no", includeStock:true, includePedido:true, search:""};
+    state.filters={
+      marca:"todas",
+      familia:"todas",
+      modelo:"todas",
+      estado:"todas",
+      representante:"todas",
+      cliente:"todas",
+      reserva:"no",
+      pago:"todas",
+      includeStock:true,
+      includePedido:true,
+      search:""
+    };
 
     $("kpisBox").classList.add("hidden");
     $("filtersBox").classList.add("hidden");
+    $("repSummaryBox").classList.add("hidden");
+    $("clientSummaryBox").classList.add("hidden");
     $("viewsBox").classList.add("hidden");
     $("summaryBody").innerHTML="";
     $("detailBody").innerHTML="";
+    $("repSummaryBody").innerHTML="";
+    $("clientSummaryBody").innerHTML="";
     $("metaResults").textContent="—";
     $("detailCount").textContent="0";
+    $("repSummaryMeta").textContent="—";
+    $("clientSummaryMeta").textContent="—";
     setView("summary");
     setStatus("Sin archivo cargado.","bg-slate-300");
     updateBrandLogo();
 
     $("btnReloadData").classList.add("hidden");
+    $("btnExportExcel").classList.add("hidden");
   }
 
-  // Bind filters
   function bindFilters(){
     const onChange = async ()=>{
       state.filters.marca=$("fMarca").value;
       state.filters.familia=$("fFamilia").value;
       state.filters.modelo=$("fModelo").value;
       state.filters.estado=$("fEstado").value;
-      state.filters.subfamilia=$("fSubfamilia").value;
-      state.filters.tipo=$("fTipo").value;
+      state.filters.representante=$("fRepresentante").value;
+      state.filters.cliente=$("fCliente").value;
       state.filters.reserva=$("fReserva").value;
+      state.filters.pago=$("fPago").value;
       state.filters.includeStock=$("fInclStock").checked;
       state.filters.includePedido=$("fInclPedido").checked;
       state.filters.search=$("fSearch").value;
@@ -972,12 +1562,30 @@
       renderKPIs();
     };
 
-    ["fMarca","fFamilia","fModelo","fEstado","fSubfamilia","fTipo","fReserva","fInclStock","fInclPedido"].forEach(id=>$(id).addEventListener("change", onChange));
+    ["fMarca","fFamilia","fModelo","fEstado","fRepresentante","fCliente","fReserva","fPago","fInclStock","fInclPedido"].forEach(id=>{
+      $(id).addEventListener("change", onChange);
+    });
+
     let t=null;
-    $("fSearch").addEventListener("input", ()=>{ clearTimeout(t); t=setTimeout(onChange, 200); });
+    $("fSearch").addEventListener("input", ()=>{
+      clearTimeout(t);
+      t=setTimeout(onChange, 180);
+    });
 
     $("btnClearFilters").addEventListener("click", async ()=>{
-      state.filters={marca:"todas", familia:"todas", modelo:"todas", estado:"todas", subfamilia:"todas", tipo:"todas", reserva:"no", includeStock:true, includePedido:true, search:""};
+      state.filters={
+        marca:"todas",
+        familia:"todas",
+        modelo:"todas",
+        estado:"todas",
+        representante:"todas",
+        cliente:"todas",
+        reserva:"no",
+        pago:"todas",
+        includeStock:true,
+        includePedido:true,
+        search:""
+      };
       rebuildOptions();
       syncFilterUI();
       await updateBrandLogo();
@@ -986,7 +1594,6 @@
     });
   }
 
-  // Buttons
   $("btnReset").addEventListener("click", resetUI);
   $("tabSummary").addEventListener("click", ()=>setView("summary"));
   $("tabDetail").addEventListener("click", ()=>setView("detail"));
@@ -1020,20 +1627,16 @@
     }
   });
 
-  // Startup
   (async ()=>{
     bindFilters();
     resetUI();
     await loadCompanyLogo();
 
-    // Intentar autocarga de data.xlsx
     try{
       const rows = await loadFromUrl(AUTOLOAD_URL);
       await applyDataset(rows, "Autocarga: data.xlsx");
       $("btnReloadData").classList.remove("hidden");
-    } catch {
-      // modo manual
-    }
+    } catch {}
   })();
 
 })();
