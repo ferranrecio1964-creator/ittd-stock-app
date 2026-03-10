@@ -26,10 +26,11 @@
 
         <div class="flex items-center justify-between gap-3">
           <div class="flex items-center gap-3 min-w-0">
-            <div class="h-10 w-10 rounded-2xl bg-slate-900 flex items-center justify-center text-white font-black overflow-hidden">
-              <img id="companyLogo" class="hidden h-10 w-10 object-cover" alt="ITTDynamics" />
-              <span id="companyLogoFallback">IT</span>
+            <div class="h-12 w-40 rounded-2xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden px-2 shrink-0">
+              <img id="companyLogo" class="hidden max-h-10 max-w-full object-contain" alt="ITTDynamics" />
+              <span id="companyLogoFallback" class="text-slate-900 font-black text-sm">ITTDynamics</span>
             </div>
+
             <div class="min-w-0">
               <div class="text-xs text-slate-600">ITTDynamics</div>
               <h1 class="text-lg md:text-xl font-semibold truncate">Consulta Stock / Pedidos / Reservas · Precios + PDF</h1>
@@ -249,7 +250,6 @@
       </section>
     </main>
 
-    <!-- Modal cálculo interno -->
     <div id="priceModal" class="hidden fixed inset-0 z-50">
       <div class="absolute inset-0 bg-slate-900/40" data-close="1"></div>
       <div class="absolute inset-0 flex items-center justify-center p-4">
@@ -311,7 +311,6 @@
       </div>
     </div>
 
-    <!-- Modal ficha cliente -->
     <div id="clientModal" class="hidden fixed inset-0 z-50">
       <div class="absolute inset-0 bg-slate-900/50" data-close-client="1"></div>
       <div class="absolute inset-0 flex items-center justify-center p-4">
@@ -331,9 +330,9 @@
           <div class="p-4 space-y-4">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div class="flex items-center gap-3">
-                <div class="h-12 w-12 rounded-xl bg-slate-900 flex items-center justify-center overflow-hidden">
-                  <img id="cCompanyLogo" class="hidden h-12 w-12 object-cover" alt="ITTDynamics" />
-                  <span id="cCompanyLogoFallback" class="text-white font-black">IT</span>
+                <div class="h-12 w-40 rounded-xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden px-2 shrink-0">
+                  <img id="cCompanyLogo" class="hidden max-h-10 max-w-full object-contain" alt="ITTDynamics" />
+                  <span id="cCompanyLogoFallback" class="text-slate-900 font-black text-sm">ITTDynamics</span>
                 </div>
                 <div class="h-12 w-28 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden">
                   <img id="cBrandLogo" class="hidden max-h-10 max-w-24 object-contain" alt="Marca" />
@@ -414,7 +413,14 @@
     "bobcat": "./bobcat-decal-6731507-57_1.PNG",
     "ausa": "./ausa.PNG"
   };
-  const COMPANY_LOGO_CANDIDATES = ["./logo_itd.png","./logo_ittd.png","./logo_itd.jpg","./logo_itd.jpeg"];
+
+  const COMPANY_LOGO_CANDIDATES = [
+    "./ITTDynamics_H_Baja.jpg",
+    "./logo_itd.png",
+    "./logo_ittd.png",
+    "./logo_itd.jpg",
+    "./logo_itd.jpeg"
+  ];
 
   const FAMILY_RULES = [
     { key: "cargadora compacta ruedas", keywords: ["cargadora compacta","ruedas"], vs:0.18, vo:0.15, vr:0.12 },
@@ -565,6 +571,7 @@
         $("companyLogo").src = url + "?v=" + Date.now();
         $("companyLogo").classList.remove("hidden");
         $("companyLogoFallback").classList.add("hidden");
+
         $("cCompanyLogo").src = url + "?v=" + Date.now();
         $("cCompanyLogo").classList.remove("hidden");
         $("cCompanyLogoFallback").classList.add("hidden");
@@ -1123,7 +1130,6 @@
   function updateClientPreview(){
     const row = state.currentClientRow;
     if(!row) return;
-
     const info = getClientPriceInfo(row);
     $("cPriceLabel").textContent = "Oferta";
     $("cPriceValue").textContent = fmtIntOrND(info.value);
@@ -1202,9 +1208,14 @@
 
     for(const url of COMPANY_LOGO_CANDIDATES){
       const info = await imgUrlToImageInfo(url);
-      if(info && info.dataUrl){
+      if(info && info.dataUrl && info.width && info.height){
         try{
-          doc.addImage(info.dataUrl, "PNG", 40, topY, 40, 40);
+          const maxW = 110;
+          const maxH = 36;
+          const ratio = Math.min(maxW / info.width, maxH / info.height);
+          const drawW = info.width * ratio;
+          const drawH = info.height * ratio;
+          doc.addImage(info.dataUrl, "PNG", 40, topY + ((maxH - drawH) / 2), drawW, drawH);
         } catch {}
         break;
       }
